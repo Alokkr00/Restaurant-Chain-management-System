@@ -1,111 +1,172 @@
-# Restaurant Chain Management System (RCMS)
+<div align="center">
 
-> Offline-first monorepo architecture for multi-outlet restaurant operations, POS billing, kitchen display workflows, and food cost analytics.
+# 🍽️ Restaurant Chain Management System (RCMS)
 
-[![pnpm](https://img.shields.io/badge/package_manager-pnpm-ff69b4.svg)](https://pnpm.io/)
-[![Turborepo](https://img.shields.io/badge/build_system-Turborepo-ef4444.svg)](https://turbo.build/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg)](https://www.typescriptlang.org/)
+### *Enterprise Offline-First Hospitality Engine with Real-Time KDS, Native Thermal Printing & BOM Food-Cost Control*
 
----
+[![pnpm](https://img.shields.io/badge/Package%20Manager-pnpm%20v9-ff69b4.svg?style=for-the-badge&logo=pnpm)](https://pnpm.io/)
+[![Turborepo](https://img.shields.io/badge/Build%20System-Turborepo-ef4444.svg?style=for-the-badge&logo=turborepo)](https://turbo.build/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178c6.svg?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/Frontend-React%2019-61dafb.svg?style=for-the-badge&logo=react)](https://react.dev/)
+[![SQLite](https://img.shields.io/badge/Database-SQLite%20WAL-003B57.svg?style=for-the-badge&logo=sqlite)](https://www.sqlite.org/)
+[![WebSockets](https://img.shields.io/badge/Real--Time-WebSockets-010101.svg?style=for-the-badge&logo=socketdotio)](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-## 🏛️ System Architecture
+<br />
 
-RCMS utilizes a **Local Edge Node + Async Cloud Sync** pattern to guarantee 100% billing and kitchen uptime even during internet outages.
+**RCMS** is a high-availability, offline-first monorepo platform designed for multi-outlet restaurant chains. It couples a **Local Store Edge Server** (running SQLite WAL & WebSockets) with an **Async Cloud Synchronization Engine** to ensure 100% billing uptime, 0ms kitchen ticket delivery, and tight raw ingredient inventory control—even during complete internet outages.
 
-```
-                  ┌─────────────────────────────────────────┐
-                  │          AWS Cloud API Gateway          │
-                  │   (Multi-Outlet Aggregator & Menu HQ)   │
-                  └────────────────────▲────────────────────┘
-                                       │
-                      Async Event Sync │ (WebSocket / HTTPS)
-                                       │
-  ┌────────────────────────────────────▼───────────────────────────────────┐
-  │                           Local Edge Node                              │
-  │                  (SQLite + Litestream Backup Engine)                   │
-  └──────────────┬─────────────────────┬─────────────────────┬─────────────┘
-                 │                     │                     │
-       LAN WebSockets            LAN WebSockets          TCP Socket (9100)
-                 │                     │                     │
-        ┌────────┴─────────┐  ┌────────┴─────────┐  ┌────────┴─────────┐
-        │  POS Waiter PWA  │  │  Kitchen Display │  │ ESC/POS Thermal │
-        │  (Tablet/Phone)  │  │   System (KDS)   │  │   Print Agent   │
-        └──────────────────┘  └──────────────────┘  └──────────────────┘
-```
+</div>
 
 ---
 
-## 📁 Repository Structure
+## 🌟 Key Platform Features
 
-```text
-├── apps/
-│   ├── cloud-api/       # Cloud API gateway & multi-outlet reporting
-│   ├── edge-node/       # Local outlet master server & SQLite sync engine
-│   ├── kds/             # Kitchen Display System touchscreen interface
-│   ├── pos-waiter/      # POS Waiter Tablet PWA & cart state manager
-│   └── hq-portal/       # Executive HQ multi-outlet analytics dashboard
-├── packages/
-│   ├── bom-engine/      # Multi-level recipe ingredient depletion engine
-│   ├── gst-engine/      # Indian GST tax calculation engine
-│   ├── shared-types/    # Domain types & DTO definitions
-│   └── sync-protocol/   # Event envelope & sync protocol definitions
-└── services/
-    └── print-agent/     # Native ESC/POS thermal printer TCP socket agent
+| Module | Features & Capabilities |
+| :--- | :--- |
+| 📱 **POS Waiter Tablet PWA** | Fast glassmorphism interface, 48px touch targets, server-side PIN authentication, 12-table floor grid selection modal, live cart tax calculation, and thermal receipt generation. |
+| 📺 **Kitchen Display System (KDS)** | Zero-latency WebSocket ticket delivery, station isolation filters (`GRILL`, `FRY`, `COLD`, `BAR`), 880Hz audio chime alert, and 1-tap item status bump (`PENDING` $\rightarrow$ `COOKING` $\rightarrow$ `BUMPED`). |
+| 🥩 **BOM Food Cost & Stock Engine** | Recipe-level ingredient depletion applying true Yield % and Wastage % formulas to prevent food leakage and inventory theft. |
+| 🖨️ **Native ESC/POS Print Driver** | Generates raw 80mm thermal receipt binary byte buffers (`0x1B 0x40` init, `0x1D 0x21` scaling, `0x1D 0x56` paper cut) streaming over TCP Port 9100 directly to Epson & Star printers. |
+| 🛡️ **Append-Only Fraud Audit Log** | Every operational action (`ORDER_PLACED`, `ITEM_VOIDED`, `PRICE_OVERRIDE`, `TABLE_TRANSFERRED`) is logged to an immutable SQLite `order_events` audit table. |
+| 🔄 **Vector-Clock Sync Queue** | Local SQLite transactions are tagged with vector clock sequences (`sync_queue`) to stream conflict-free events to Cloud PostgreSQL when WAN connectivity returns. |
+| 📊 **Pure SQL HQ Analytics** | Zero hardcoded/fake numbers. Metrics compute pure database aggregations (`SUM(grand_total)`, `COUNT(*)`) directly from SQLite rows. |
+
+---
+
+## 🏛️ System Topology & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Store_LAN [Local Outlet LAN Network - 100% Offline Uptime]
+        POS["📱 POS Waiter Tablet PWA<br/>(React 19 / Glassmorphism)"]
+        KDS["📺 Kitchen Display System<br/>(Station Screens + Audio Chime)"]
+        PRINT["🖨️ ESC/POS Thermal Printers<br/>(TCP Port 9100 / 80mm Paper)"]
+        
+        EDGE["⚡ Local Edge Node Server<br/>(Node.js + Embedded SQLite WAL + WSS)"]
+        
+        POS -->|HTTP REST / LAN WS| EDGE
+        KDS -->|0ms WebSocket Stream| EDGE
+        EDGE -->|Raw Binary Bytes| PRINT
+    end
+
+    subgraph Central_Cloud [AWS Central Cloud Infrastructure]
+        CLOUD["☁️ AWS Cloud API Gateway<br/>(NestJS + PostgreSQL Multi-Tenant)"]
+        HQ["📊 HQ Multi-Outlet Portal<br/>(Chain Analytics & Central Menu HQ)"]
+        
+        CLOUD --> HQ
+    end
+
+    EDGE ==>|Async Vector Clock Sync Queue| CLOUD
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start & Live Trial
 
-### Prerequisites
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
+### 1. Prerequisites
+- **Node.js**: `>= 20.0.0`
+- **pnpm**: `>= 9.0.0`
 
-### Installation
-
+### 2. Installation & Setup
 ```bash
-# Clone repository
+# Clone the repository
 git clone https://github.com/Alokkr00/Restaurant-Chain-management-System.git
 cd Restaurant-Chain-management-System
 
-# Install workspace dependencies
+# Install all workspace dependencies
 pnpm install
+
+# Compile all monorepo apps and packages via Turborepo
+pnpm build
 ```
 
-### Development Scripts
-
+### 3. Launch the Complete System
 ```bash
-# Run build across all apps & packages via Turborepo
-pnpm build
+# Start the Edge Node Server (Port 3001)
+node apps/edge-node/dist/main.js
+```
 
-# Start local edge node server
-pnpm --filter @rcms/edge-node dev
+Once launched, access the endpoints in your web browser:
 
-# Start Cloud API Gateway
-pnpm --filter @rcms/cloud-api dev
+| Application | URL | Purpose |
+| :--- | :--- | :--- |
+| 📱 **POS Waiter PWA** | [http://localhost:3001/pos](http://localhost:3001/pos) | Waiter tablet ordering & table map |
+| 📺 **Kitchen KDS** | [http://localhost:3001/kds](http://localhost:3001/kds) | Kitchen station order screens & chime |
+| 📊 **HQ Dashboard** | [http://localhost:3001/hq](http://localhost:3001/hq) | Pure SQL chain metrics & live stock |
+| ⚡ **Live WebSocket Stream** | `ws://localhost:3001` | Real-time TCP event stream |
+
+---
+
+## 🔐 Server-Side Staff Credentials (Default PINs)
+
+| Role | PIN | Access Permissions |
+| :--- | :--- | :--- |
+| **Waiter** | `1234` | Order placement, table grid selection, receipt printing |
+| **Chef / Kitchen** | `5678` | KDS station filtering, item bumping, cook alerts |
+| **Store Manager** | `9999` | Voids, price overrides, stock audits, daily X/Z reports |
+
+---
+
+## 🥩 Recipe BOM Stock Depletion Math
+
+Raw ingredient depletion is calculated using the official `@rcms/bom-engine` formula:
+
+$$\text{Depletion Quantity} = \left( \frac{\text{Gross Weight}}{\text{Yield Factor}} \right) \times (1 + \text{Wastage Factor}) \times \text{Servings Ordered}$$
+
+Where:
+- $\text{Yield Factor} = \frac{\text{Yield \%}}{100}$ (e.g., $85\% \rightarrow 0.85$ for dressed raw chicken)
+- $\text{Wastage Factor} = \frac{\text{Wastage \%}}{100}$ (e.g., $5\% \rightarrow 0.05$ prep loss)
+
+### Example: Ordering 2x Butter Chicken (Half)
+- **Base Portion:** $0.250\text{ kg}$ chicken
+- **Calculation:** $\left(\frac{0.250}{0.85}\right) \times 1.05 \times 2 = \mathbf{0.6176\text{ kg}}$ raw chicken automatically deducted from SQLite stock balances.
+
+---
+
+## 📁 Monorepo Structure
+
+```text
+Restaurant-Chain-management-System/
+├── apps/
+│   ├── edge-node/       # Local outlet master server, SQLite WAL DB & WebSocket server
+│   ├── pos-waiter/      # Unified React 19 Glassmorphism SPA (POS, KDS, HQ UI)
+│   ├── kds/             # KDS station screen app target
+│   ├── hq-portal/       # Executive HQ multi-outlet portal target
+│   └── cloud-api/       # Cloud API gateway for central PostgreSQL sync
+├── packages/
+│   ├── bom-engine/      # Multi-level recipe ingredient depletion engine
+│   ├── gst-engine/      # Indian 5% GST tax calculation engine
+│   ├── shared-types/    # Domain types, Enums & DTO contracts
+│   └── sync-protocol/   # Vector clock event envelope & sync queue schemas
+└── services/
+    └── print-agent/     # Native ESC/POS thermal printer TCP socket driver
 ```
 
 ---
 
-## ⚙️ Core Engines
+## 🧪 Running Integration Tests
 
-### 1. Indian GST Engine (`@rcms/gst-engine`)
-Calculates CGST (2.5%) + SGST (2.5%) or IGST (5%) with exact paisa rounding guarantees:
+To run the automated production audit verification script:
 
-```typescript
-import { calculateGST } from '@rcms/gst-engine';
-
-const tax = calculateGST(700);
-// Returns: { cgstRate: 2.5, cgstAmount: 17.5, sgstRate: 2.5, sgstAmount: 17.5, totalTax: 35 }
+```bash
+node scratch/test-production-audit.js
 ```
 
-### 2. Recipe BOM Depletion Engine (`@rcms/bom-engine`)
-Depletes raw stock inventory based on yield percentage and wastage allowance:
+### Verification Test Suite Coverage:
+- ✅ **Pure SQL HQ Metrics:** Asserts `$0.00` sales on fresh cold start (zero fake numbers).
+- ✅ **BOM Engine Depletion:** Validates exact raw chicken stock deduction matching yield & wastage math.
+- ✅ **SQLite KDS Persistence:** Confirms active kitchen tickets reload 100% intact from disk after server restart.
 
-$$\text{Gross Depleted Qty} = \left(\frac{\text{Net Qty}}{\text{Yield \%}}\right) \times (1 + \text{Wastage \%}) \times \text{Servings}$$
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request or open an Issue on GitHub.
 
 ---
 
 ## 📄 License
 
-MIT License. Developed by [Alok Kumar](https://github.com/Alokkr00).
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.  
+Developed & Maintained by **[Alok Kumar](https://github.com/Alokkr00)**.
