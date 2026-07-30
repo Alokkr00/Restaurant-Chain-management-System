@@ -7,14 +7,15 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@rcms/shared-types": "workspace:*",
-    "@rcms/gst-engine": "workspace:*",
     "@rcms/bom-engine": "workspace:*",
-    "@rcms/sync-protocol": "workspace:*",
-    "@rcms/print-agent": "workspace:*"
+    "@rcms/gst-engine": "workspace:*",
+    "@rcms/print-agent": "workspace:*",
+    "@rcms/shared-types": "workspace:*",
+    "@rcms/sync-protocol": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "@types/node": "^20.12.0"
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.12.0",
+    "typescript": "^5.4.5"
   }
 }

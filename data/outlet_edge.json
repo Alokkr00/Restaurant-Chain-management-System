@@ -1,0 +1,62 @@
+{
+  "menuItems": [
+    {
+      "id": "item_butter_chicken",
+      "cat": "cat_mains",
+      "name": "Butter Chicken",
+      "price": 350,
+      "station": "GRILL",
+      "isActive": true
+    },
+    {
+      "id": "item_paneer_tikka",
+      "cat": "cat_starters",
+      "name": "Paneer Tikka",
+      "price": 280,
+      "station": "GRILL",
+      "isActive": true
+    },
+    {
+      "id": "item_dal_makhani",
+      "cat": "cat_mains",
+      "name": "Dal Makhani",
+      "price": 260,
+      "station": "FRY",
+      "isActive": true
+    },
+    {
+      "id": "item_butter_naan",
+      "cat": "cat_mains",
+      "name": "Butter Naan",
+      "price": 60,
+      "station": "GRILL",
+      "isActive": true
+    },
+    {
+      "id": "item_masala_coke",
+      "cat": "cat_beverages",
+      "name": "Masala Coke",
+      "price": 90,
+      "station": "BAR",
+      "isActive": true
+    },
+    {
+      "id": "item_sweet_lassi",
+      "cat": "cat_beverages",
+      "name": "Sweet Lassi",
+      "price": 110,
+      "station": "BAR",
+      "isActive": true
+    },
+    {
+      "name": "Chicken Biryani",
+      "cat": "cat_mains",
+      "price": 340,
+      "station": "GRILL",
+      "id": "item_1785406594354_9wvx",
+      "isActive": true
+    }
+  ],
+  "orders": [],
+  "syncQueue": []
+}

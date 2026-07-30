@@ -12,7 +12,6 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
-// Root workspace directory (e:\Books)
 const ROOT_DIR = path.resolve(__dirname, '../../../..');
 
 function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
@@ -32,7 +31,7 @@ async function startServer() {
 
   const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -82,26 +81,60 @@ async function startServer() {
     }
 
     // ==========================================
-    // 📡 REST API ENDPOINTS
+    // 📡 REST API: MENU CRUD (GET, POST, DELETE)
     // ==========================================
     if (req.method === 'GET' && url === '/api/v1/menu') {
+      const items = dbService.getMenuItems();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          items: [
-            { id: 'item_butter_chicken', cat: 'cat_mains', name: 'Butter Chicken', price: 350, station: 'GRILL' },
-            { id: 'item_paneer_tikka', cat: 'cat_starters', name: 'Paneer Tikka', price: 280, station: 'GRILL' },
-            { id: 'item_dal_makhani', cat: 'cat_mains', name: 'Dal Makhani', price: 260, station: 'FRY' },
-            { id: 'item_butter_naan', cat: 'cat_mains', name: 'Butter Naan', price: 60, station: 'GRILL' },
-            { id: 'item_masala_coke', cat: 'cat_beverages', name: 'Masala Coke', price: 90, station: 'BAR' },
-            { id: 'item_sweet_lassi', cat: 'cat_beverages', name: 'Sweet Lassi', price: 110, station: 'BAR' },
-          ],
-        }),
-      );
+      res.end(JSON.stringify({ success: true, items }));
       return;
     }
 
+    if (req.method === 'POST' && url === '/api/v1/menu') {
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        try {
+          const { name, cat, price, station } = JSON.parse(body);
+          if (!name || !price || !cat || !station) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Missing required fields: name, cat, price, station' }));
+            return;
+          }
+
+          const newItem = dbService.addMenuItem({
+            name,
+            cat,
+            price: Number(price),
+            station,
+          });
+
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, item: newItem }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: (err as Error).message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'DELETE' && url.startsWith('/api/v1/menu/')) {
+      const itemId = url.split('/api/v1/menu/')[1];
+      const removed = dbService.removeMenuItem(itemId);
+      if (removed) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: `Item ${itemId} removed` }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Item not found' }));
+      }
+      return;
+    }
+
+    // ==========================================
+    // 📡 REST API: KDS & ORDERS
+    // ==========================================
     if (req.method === 'GET' && url.startsWith('/api/v1/kds/tickets')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, tickets: liveKdsTickets }));
@@ -155,7 +188,7 @@ async function startServer() {
             status: 'PENDING',
           });
 
-          console.log(`[Edge Node HTTP] Order #${orderNum} created. Pushed to KDS. GST Tax: ₹${tax.totalTax}`);
+          console.log(`[Edge Node HTTP] Order #${orderNum} created. GST Tax: ₹${tax.totalTax}`);
 
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, order: newOrder }));
@@ -196,7 +229,7 @@ async function startServer() {
   const PORT = 3001;
   server.listen(PORT, () => {
     console.log(`\n====================================================`);
-    console.log(`🚀 RCMS FULL-STACK SYSTEM IS LIVE & LISTENING!`);
+    console.log(`🚀 RCMS FULL-STACK SYSTEM LIVE ON PORT ${PORT}`);
     console.log(`====================================================`);
     console.log(`📱 POS Waiter PWA UI:       http://localhost:${PORT}/pos`);
     console.log(`📺 Kitchen Display (KDS):   http://localhost:${PORT}/kds`);
