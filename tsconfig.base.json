@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "lib": ["ES2022", "DOM"],
     "declaration": true,
     "declarationMap": true,
@@ -12,14 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "baseUrl": ".",
-    "paths": {
-      "@rcms/shared-types": ["packages/shared-types/src/index.ts"],
-      "@rcms/sync-protocol": ["packages/sync-protocol/src/index.ts"],
-      "@rcms/bom-engine": ["packages/bom-engine/src/index.ts"],
-      "@rcms/gst-engine": ["packages/gst-engine/src/index.ts"]
-    }
+    "emitDecoratorMetadata": true
   },
   "exclude": ["node_modules", "dist"]
 }

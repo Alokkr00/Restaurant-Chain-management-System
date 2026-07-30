@@ -1,45 +1,20 @@
-import { Order, KitchenStation } from '../../../../packages/shared-types/src/index';
-import { LocalDatabaseService } from '../../database/local-db.service';
-import { KOTFormatterService, FormattedKOTPrintJob } from '../print/kot-formatter.service';
-import { ESCPOSPrintAgent } from '../../../../services/print-agent/src/main';
+import { Order } from '@rcms/shared-types';
+import { ESCPOSPrintAgent } from '@rcms/print-agent';
 
 export class OrderExecutionService {
-  constructor(
-    private dbService: LocalDatabaseService,
-    private kotFormatter: KOTFormatterService,
-    private printAgent: ESCPOSPrintAgent,
-  ) {}
+  private printAgent = new ESCPOSPrintAgent();
 
-  async processIncomingOrder(order: Order): Promise<{ success: boolean; printJobs: FormattedKOTPrintJob[] }> {
-    console.log(`[OrderExecution] Received order ${order.orderNumber} over LAN WebSockets.`);
+  async processOrder(order: Order): Promise<boolean> {
+    console.log(`[OrderExecution] Processing order ${order.orderNumber} for table ${order.tableId}...`);
+    
+    // Dispatch print job
+    const printBuffer = Buffer.from(`KOT ORDER #${order.orderNumber}\nTABLE: ${order.tableId}\nITEMS: ${order.items.length}\n`);
+    await this.printAgent.sendPrintJob({
+      jobId: `print_${Date.now()}`,
+      targetPrinterIp: '192.168.1.200',
+      rawEscPosBuffer: printBuffer,
+    });
 
-    // 1. Save order to local SQLite DB & queue event for cloud sync
-    await this.dbService.saveOrder(order);
-
-    // 2. Format KOT print jobs per station (GRILL, FRY, COLD, BAR)
-    const stations: KitchenStation[] = ['GRILL', 'FRY', 'COLD', 'BAR'] as any;
-    const generatedJobs: FormattedKOTPrintJob[] = [];
-
-    for (const station of stations) {
-      const printJob = this.kotFormatter.formatKOTForStation(order, station);
-      if (printJob) {
-        generatedJobs.push(printJob);
-        console.log(`[OrderExecution] Formatted KOT for ${station} station -> Primary Printer: ${printJob.targetPrinterIp}`);
-
-        // 3. Dispatch to silent ESC/POS Print Agent with auto-failover
-        await this.printAgent.sendPrintJob({
-          jobId: printJob.jobId,
-          targetPrinterIp: printJob.targetPrinterIp,
-          targetPrinterPort: 9100,
-          fallbackPrinterIp: printJob.fallbackPrinterIp,
-          rawEscPosBuffer: Buffer.from(printJob.formattedText),
-        });
-      }
-    }
-
-    return {
-      success: true,
-      printJobs: generatedJobs,
-    };
+    return true;
   }
 }

@@ -10,7 +10,8 @@
     "@rcms/shared-types": "workspace:*",
     "@rcms/gst-engine": "workspace:*",
     "@rcms/bom-engine": "workspace:*",
-    "@rcms/sync-protocol": "workspace:*"
+    "@rcms/sync-protocol": "workspace:*",
+    "@rcms/print-agent": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

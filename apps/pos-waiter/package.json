@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "start": "node dist/index.js"
   },
   "dependencies": {
-    "@rcms/shared-types": "workspace:*"
+    "@rcms/shared-types": "workspace:*",
+    "@rcms/gst-engine": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.0"
   }
 }

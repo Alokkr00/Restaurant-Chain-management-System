@@ -1,60 +1,25 @@
-import { Order, OrderItem, KitchenStation } from '../../../../packages/shared-types/src/index';
-
-export interface FormattedKOTPrintJob {
-  jobId: string;
-  orderId: string;
-  orderNumber: string;
-  tableId?: string;
-  station: KitchenStation;
-  formattedText: string;
-  targetPrinterIp: string;
-  fallbackPrinterIp: string;
-}
+import { Order, KitchenStation } from '@rcms/shared-types';
 
 export class KOTFormatterService {
-  // Station thermal printer mapping (static LAN IPs)
-  private stationPrinterMap: Record<KitchenStation, { primary: string; fallback: string }> = {
-    GRILL: { primary: '192.168.1.21', fallback: '192.168.1.20' }, // Backup to Pantry
-    FRY: { primary: '192.168.1.22', fallback: '192.168.1.20' },
-    COLD: { primary: '192.168.1.20', fallback: '192.168.1.21' },
-    BAR: { primary: '192.168.1.23', fallback: '192.168.1.20' },
-  };
-
-  formatKOTForStation(order: Order, station: KitchenStation): FormattedKOTPrintJob | null {
+  formatStationKOT(order: Order, station: KitchenStation): string {
     const stationItems = order.items.filter((i) => i.station === station);
-    if (stationItems.length === 0) return null;
+    if (stationItems.length === 0) return '';
 
-    const printerConfig = this.stationPrinterMap[station] || { primary: '192.168.1.20', fallback: '192.168.1.21' };
-
-    let text = `========================================\n`;
-    text += `          KITCHEN ORDER TICKET          \n`;
-    text += `========================================\n`;
-    text += `Order #: ${order.orderNumber}\n`;
-    text += `Table: ${order.tableId || 'N/A'} | Type: ${order.orderType}\n`;
-    text += `Station: ${station}\n`;
-    text += `Time: ${new Date(order.createdAt).toLocaleTimeString('en-IN')}\n`;
-    text += `----------------------------------------\n`;
+    const lines: string[] = [];
+    lines.push('========================================');
+    lines.push(`           KITCHEN TICKET: ${station}   `);
+    lines.push('========================================');
+    lines.push(`Order #: ${order.orderNumber}`);
+    lines.push(`Table: ${order.tableId || 'Takeaway'}`);
+    lines.push(`Time: ${new Date().toLocaleTimeString()}`);
+    lines.push('----------------------------------------');
 
     for (const item of stationItems) {
-      text += `${item.quantity}x  ${item.itemName.toUpperCase()}\n`;
-      if (item.notes) {
-        text += `    >> NOTE: ${item.notes}\n`;
-      }
+      lines.push(`${item.quantity}x  ${item.itemName}`);
+      if (item.notes) lines.push(`    Notes: ${item.notes}`);
     }
 
-    text += `----------------------------------------\n`;
-    text += `[ESC/POS FULL CUT COMMAND ENQUEUED]\n`;
-    text += `========================================\n`;
-
-    return {
-      jobId: `print_kot_${station}_${order.id}`,
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      tableId: order.tableId,
-      station,
-      formattedText: text,
-      targetPrinterIp: printerConfig.primary,
-      fallbackPrinterIp: printerConfig.fallback,
-    };
+    lines.push('----------------------------------------');
+    return lines.join('\n');
   }
 }
