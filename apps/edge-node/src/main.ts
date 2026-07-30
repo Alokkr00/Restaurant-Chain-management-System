@@ -12,11 +12,13 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
-const ROOT_DIR = path.resolve(__dirname, '../../../..');
+// ROOT_DIR dynamically resolves to the workspace root (e:\Books)
+const ROOT_DIR = process.cwd();
 
 function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      console.error(`[Static File Error] Could not read file: ${filePath}`, err.message);
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('404 Not Found');
     } else {
@@ -43,7 +45,7 @@ async function startServer() {
     const url = req.url || '';
 
     // ==========================================
-    // 🌐 FRONTEND STATIC ROUTING
+    // 🌐 FRONTEND STATIC ROUTING FOR POS WAITER
     // ==========================================
     if (url === '/' || url === '/pos' || url === '/pos/' || url === '/pos/index.html') {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/index.html'), 'text/html');
@@ -58,6 +60,9 @@ async function startServer() {
       return;
     }
 
+    // ==========================================
+    // 🌐 FRONTEND STATIC ROUTING FOR KDS KITCHEN
+    // ==========================================
     if (url === '/kds' || url === '/kds/' || url === '/kds/index.html') {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/index.html'), 'text/html');
       return;
@@ -71,6 +76,9 @@ async function startServer() {
       return;
     }
 
+    // ==========================================
+    // 🌐 FRONTEND STATIC ROUTING FOR HQ PORTAL
+    // ==========================================
     if (url === '/hq' || url === '/hq/' || url === '/hq/index.html') {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/index.html'), 'text/html');
       return;
@@ -155,7 +163,7 @@ async function startServer() {
               unitPrice: verifiedPrice,
               subtotal: lineSubtotal,
               station: item.station || 'GRILL',
-              kdsStatus: 'PENDING', // Item-level status tracking
+              kdsStatus: 'PENDING',
               notes: item.notes || '',
             };
           });
@@ -187,7 +195,6 @@ async function startServer() {
             inventoryService.processOrderStockDepletion(item.menuItemId, item.quantity);
           }
 
-          // Item-level KDS ticket tracking
           liveKdsTickets.push({
             id: newOrder.id,
             orderNumber: newOrder.orderNumber,
@@ -208,7 +215,6 @@ async function startServer() {
       return;
     }
 
-    // ITEM-LEVEL KDS BUMPING (Prevents Grill bump from clearing Bar items)
     if (req.method === 'POST' && url === '/api/v1/kds/bump') {
       let body = '';
       req.on('data', (chunk) => (body += chunk));
@@ -238,8 +244,8 @@ async function startServer() {
       return;
     }
 
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Endpoint not found' }));
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
   });
 
   const PORT = 3001;
