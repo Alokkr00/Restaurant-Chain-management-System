@@ -8,18 +8,73 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    /* UNIFIED CROSS-APP NAVIGATION BAR */
+    .unified-nav {
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .unified-nav .brand-title {
+      font-weight: 900;
+      font-size: 1.1rem;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .unified-nav .nav-tabs {
+      display: flex;
+      gap: 12px;
+    }
+    .unified-nav .nav-link {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      text-decoration: none;
+      background: #1e293b;
+      border: 1px solid #475569;
+      transition: all 0.2s ease;
+    }
+    .unified-nav .nav-link:hover {
+      color: #fff;
+      border-color: #38bdf8;
+    }
+    .unified-nav .nav-link.active {
+      background: #38bdf8;
+      color: #0f172a;
+      border-color: #38bdf8;
+    }
+  </style>
 </head>
 <body>
 
+  <!-- UNIFIED CROSS-APP TOP NAVIGATION BAR -->
+  <nav class="unified-nav">
+    <div class="brand-title">
+      <span>🍽️</span> RCMS RESTAURANT CHAIN SYSTEM
+    </div>
+    <div class="nav-tabs">
+      <a href="/pos" class="nav-link">📱 POS Waiter PWA</a>
+      <a href="/kds" class="nav-link">📺 Kitchen Display (KDS)</a>
+      <a href="/hq" class="nav-link active">📊 HQ Command Center</a>
+    </div>
+  </nav>
+
   <!-- HQ HEADER NAVBAR -->
-  <header class="hq-header">
+  <header class="hq-header" style="margin-top: 16px;">
     <div class="hq-brand">
       <span class="hq-logo">🌐</span>
       <span class="hq-title">RCMS HQ COMMAND CENTER</span>
     </div>
     <div class="hq-meta">
       <span class="meta-chip">7 Outlets Online</span>
-      <span class="meta-chip active">Phase 1 Pilot Active</span>
+      <span class="meta-chip active">🟢 Live Edge Sync Connected</span>
     </div>
   </header>
 
@@ -30,13 +85,13 @@
     <section class="leakage-hero">
       <div class="hero-card total-sales">
         <span class="card-label">Chain Today's Sales</span>
-        <span class="card-value">₹1,46,500</span>
-        <span class="card-sub">240 Orders Processed</span>
+        <span class="card-value" id="hq-total-sales">₹0.00</span>
+        <span class="card-sub" id="hq-total-orders">0 Orders Processed</span>
       </div>
 
       <div class="hero-card food-cost warning">
         <span class="card-label">Chain Avg Food Cost %</span>
-        <span class="card-value">30.42%</span>
+        <span class="card-value" id="hq-food-cost">30.42%</span>
         <span class="card-sub alert">⚠️ Target: 28.00% (+2.42% Leakage)</span>
       </div>
 
@@ -50,8 +105,8 @@
     <!-- MULTI-OUTLET COMPARISON TABLE -->
     <section class="outlet-section">
       <div class="section-header">
-        <h2>📊 Multi-Outlet Performance Comparison</h2>
-        <span class="time-range">Real-Time Sync</span>
+        <h2>📊 Multi-Outlet Real-Time Performance Comparison</h2>
+        <span class="time-range" style="color:#22c55e; font-weight:700;">🟢 Live Polling Every 3s</span>
       </div>
 
       <table class="outlet-table">
@@ -62,43 +117,17 @@
             <th>Orders</th>
             <th>Sales Total</th>
             <th>Food Cost %</th>
-            <th>Avg Ticket Time</th>
             <th>Status</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td class="outlet-name-cell">Connaught Place</td>
-            <td>New Delhi (Flagship)</td>
-            <td>142</td>
-            <td class="sales-val">₹84,500</td>
-            <td><span class="pct-chip green">30.0%</span></td>
-            <td>6.4 mins</td>
-            <td><span class="status-dot green"></span> Live</td>
-          </tr>
-          <tr>
-            <td class="outlet-name-cell">Gurugram CyberHub</td>
-            <td>Gurugram</td>
-            <td>98</td>
-            <td class="sales-val">₹62,000</td>
-            <td><span class="pct-chip red">31.0%</span></td>
-            <td>8.2 mins</td>
-            <td><span class="status-dot green"></span> Live</td>
-          </tr>
-          <tr>
-            <td class="outlet-name-cell">Indiranagar 100ft</td>
-            <td>Bengaluru</td>
-            <td>--</td>
-            <td class="sales-val">₹0</td>
-            <td><span class="pct-chip">--</span></td>
-            <td>--</td>
-            <td><span class="status-dot amber"></span> Onboarding</td>
-          </tr>
+        <tbody id="hq-outlet-table-body">
+          <!-- Live Outlet Rows Injected Here -->
         </tbody>
       </table>
     </section>
 
   </main>
 
+  <script src="/hq/app.js"></script>
 </body>
 </html>

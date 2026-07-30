@@ -97,6 +97,10 @@ export class LocalDatabaseService {
   // ==========================================
   // 🛒 ORDERS & SYNC QUEUE
   // ==========================================
+  getOrders(): Order[] {
+    return this.data.orders || [];
+  }
+
   async saveOrder(order: Order): Promise<void> {
     this.data.orders.push(order);
     this.data.syncQueue.push({

@@ -8,8 +8,63 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* UNIFIED CROSS-APP NAVIGATION BAR */
+    .unified-nav {
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .unified-nav .brand-title {
+      font-weight: 900;
+      font-size: 1.1rem;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .unified-nav .nav-tabs {
+      display: flex;
+      gap: 12px;
+    }
+    .unified-nav .nav-link {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #94a3b8;
+      text-decoration: none;
+      background: #1e293b;
+      border: 1px solid #475569;
+      transition: all 0.2s ease;
+    }
+    .unified-nav .nav-link:hover {
+      color: #fff;
+      border-color: #38bdf8;
+    }
+    .unified-nav .nav-link.active {
+      background: #38bdf8;
+      color: #0f172a;
+      border-color: #38bdf8;
+    }
+  </style>
 </head>
 <body>
+
+  <!-- UNIFIED CROSS-APP TOP NAVIGATION BAR -->
+  <nav class="unified-nav">
+    <div class="brand-title">
+      <span>🍽️</span> RCMS RESTAURANT CHAIN SYSTEM
+    </div>
+    <div class="nav-tabs">
+      <a href="/pos" class="nav-link active">📱 POS Waiter PWA</a>
+      <a href="/kds" class="nav-link">📺 Kitchen Display (KDS)</a>
+      <a href="/hq" class="nav-link">📊 HQ Command Center</a>
+    </div>
+  </nav>
 
   <!-- FAST 4-DIGIT PIN AUTH OVERLAY -->
   <div id="pin-modal" class="modal-overlay">

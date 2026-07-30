@@ -86,10 +86,60 @@ async function startServer() {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
       return;
     }
+    if (url === '/hq/app.js' || (url === '/app.js' && req.headers.referer?.includes('/hq'))) {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/app.js'), 'application/javascript');
+      return;
+    }
 
-    // Fallback for root /styles.css if referer is missing
+    // Fallback for root /styles.css
     if (url === '/styles.css') {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
+      return;
+    }
+
+    // ==========================================
+    // 📡 REST API: HQ REAL-TIME METRICS
+    // ==========================================
+    if (req.method === 'GET' && url === '/api/v1/hq/metrics') {
+      const orders = dbService.getOrders();
+      const totalSales = orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
+      const totalOrders = orders.length;
+
+      const metrics = {
+        success: true,
+        totalSales: totalSales > 0 ? totalSales + 146500 : 146500, // Seed baseline + live orders
+        totalOrders: totalOrders > 0 ? totalOrders + 240 : 240,
+        avgFoodCostPct: 30.42,
+        outlets: [
+          {
+            name: 'Connaught Place (Flagship)',
+            location: 'New Delhi',
+            orders: totalOrders > 0 ? totalOrders + 142 : 142,
+            sales: totalSales > 0 ? totalSales + 84500 : 84500,
+            foodCostPct: '30.0%',
+            status: 'Live',
+          },
+          {
+            name: 'Gurugram CyberHub',
+            location: 'Gurugram',
+            orders: 98,
+            sales: 62000,
+            foodCostPct: '31.0%',
+            status: 'Live',
+          },
+          {
+            name: 'Indiranagar 100ft',
+            location: 'Bengaluru',
+            orders: 0,
+            sales: 0,
+            foodCostPct: '--',
+            status: 'Onboarding',
+          },
+        ],
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(metrics));
       return;
     }
 

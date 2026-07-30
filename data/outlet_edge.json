@@ -57,6 +57,98 @@
       "isActive": true
     }
   ],
-  "orders": [],
-  "syncQueue": []
+  "orders": [
+    {
+      "id": "ord_1785408272992",
+      "outletId": "outlet_flagship_01",
+      "orderNumber": "KOT-5504",
+      "tableId": "Table 2",
+      "waiterId": "Outlet Manager",
+      "orderType": "DINE_IN",
+      "status": "PLACED",
+      "items": [
+        {
+          "id": "item_1785408272983_xepe",
+          "menuItemId": "item_1785406594354_9wvx",
+          "itemName": "Chicken Biryani",
+          "quantity": 1,
+          "unitPrice": 340,
+          "subtotal": 340,
+          "station": "GRILL",
+          "kdsStatus": "BUMPED",
+          "notes": ""
+        }
+      ],
+      "subtotal": 340,
+      "totalTax": 17,
+      "discountAmount": 0,
+      "grandTotal": 357,
+      "createdAt": "2026-07-30T10:44:32.992Z",
+      "updatedAt": "2026-07-30T10:44:32.993Z"
+    },
+    {
+      "id": "ord_1785408394410",
+      "outletId": "outlet_flagship_01",
+      "orderNumber": "KOT-7864",
+      "tableId": "Table 4",
+      "waiterId": "Rahul Sharma",
+      "orderType": "DINE_IN",
+      "status": "PLACED",
+      "items": [
+        {
+          "id": "item_1785408394407_jne7",
+          "menuItemId": "item_dal_makhani",
+          "itemName": "Dal Makhani",
+          "quantity": 1,
+          "unitPrice": 260,
+          "subtotal": 260,
+          "station": "FRY",
+          "kdsStatus": "PENDING",
+          "notes": ""
+        },
+        {
+          "id": "item_1785408394407_kuow",
+          "menuItemId": "item_butter_naan",
+          "itemName": "Butter Naan",
+          "quantity": 4,
+          "unitPrice": 60,
+          "subtotal": 240,
+          "station": "GRILL",
+          "kdsStatus": "PENDING",
+          "notes": ""
+        },
+        {
+          "id": "item_1785408394407_r6am",
+          "menuItemId": "item_paneer_tikka",
+          "itemName": "Paneer Tikka",
+          "quantity": 1,
+          "unitPrice": 280,
+          "subtotal": 280,
+          "station": "GRILL",
+          "kdsStatus": "PENDING",
+          "notes": ""
+        }
+      ],
+      "subtotal": 780,
+      "totalTax": 39,
+      "discountAmount": 0,
+      "grandTotal": 819,
+      "createdAt": "2026-07-30T10:46:34.410Z",
+      "updatedAt": "2026-07-30T10:46:34.415Z"
+    }
+  ],
+  "syncQueue": [
+    {
+      "id": "evt_1785408272993_j1xaf",
+      "eventType": "ORDER_CREATED",
+      "payload": "{\"id\":\"ord_1785408272992\",\"outletId\":\"outlet_flagship_01\",\"orderNumber\":\"KOT-5504\",\"tableId\":\"Table 2\",\"waiterId\":\"Outlet Manager\",\"orderType\":\"DINE_IN\",\"status\":\"PLACED\",\"items\":[{\"id\":\"item_1785408272983_xepe\",\"menuItemId\":\"item_1785406594354_9wvx\",\"itemName\":\"Chicken Biryani\",\"quantity\":1,\"unitPrice\":340,\"subtotal\":340,\"station\":\"GRILL\",\"kdsStatus\":\"PENDING\",\"notes\":\"\"}],\"subtotal\":340,\"totalTax\":17,\"discountAmount\":0,\"grandTotal\":357,\"createdAt\":\"2026-07-30T10:44:32.992Z\",\"updatedAt\":\"2026-07-30T10:44:32.993Z\"}",
+      "createdAt": "2026-07-30T10:44:32.994Z"
+    },
+    {
+      "id": "evt_1785408394415_r4ba0",
+      "eventType": "ORDER_CREATED",
+      "payload": "{\"id\":\"ord_1785408394410\",\"outletId\":\"outlet_flagship_01\",\"orderNumber\":\"KOT-7864\",\"tableId\":\"Table 4\",\"waiterId\":\"Rahul Sharma\",\"orderType\":\"DINE_IN\",\"status\":\"PLACED\",\"items\":[{\"id\":\"item_1785408394407_jne7\",\"menuItemId\":\"item_dal_makhani\",\"itemName\":\"Dal Makhani\",\"quantity\":1,\"unitPrice\":260,\"subtotal\":260,\"station\":\"FRY\",\"kdsStatus\":\"PENDING\",\"notes\":\"\"},{\"id\":\"item_1785408394407_kuow\",\"menuItemId\":\"item_butter_naan\",\"itemName\":\"Butter Naan\",\"quantity\":4,\"unitPrice\":60,\"subtotal\":240,\"station\":\"GRILL\",\"kdsStatus\":\"PENDING\",\"notes\":\"\"},{\"id\":\"item_1785408394407_r6am\",\"menuItemId\":\"item_paneer_tikka\",\"itemName\":\"Paneer Tikka\",\"quantity\":1,\"unitPrice\":280,\"subtotal\":280,\"station\":\"GRILL\",\"kdsStatus\":\"PENDING\",\"notes\":\"\"}],\"subtotal\":780,\"totalTax\":39,\"discountAmount\":0,\"grandTotal\":819,\"createdAt\":\"2026-07-30T10:46:34.410Z\",\"updatedAt\":\"2026-07-30T10:46:34.415Z\"}",
+      "createdAt": "2026-07-30T10:46:34.415Z"
+    }
+  ]
 }
