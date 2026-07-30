@@ -5,9 +5,10 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { calculateGST } from '@rcms/gst-engine';
 import { Order, OrderType, OrderStatus } from '@rcms/shared-types';
 import { LocalDatabaseService } from './database/local-db.service';
-import { buildThermalReceiptBuffer } from '@rcms/print-agent';
+import { buildThermalReceiptBuffer, MultiStationPrinterRouter } from '@rcms/print-agent';
 
 const dbService = new LocalDatabaseService();
+const printerRouter = new MultiStationPrinterRouter();
 const ROOT_DIR = process.cwd();
 let wss: WebSocketServer;
 
@@ -100,6 +101,30 @@ async function startServer() {
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Invalid Request' }));
+        }
+      });
+      return;
+    }
+
+    // ==========================================
+    // 💵 REST API: CASHIER SHIFT Z-REPORT DAY-END CLOSURE
+    // ==========================================
+    if (req.method === 'POST' && url === '/api/v1/shift/z-report') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { cashierId, actualCash } = JSON.parse(body);
+          const report = dbService.generateZReport(cashierId || 'usr_mgr_03', Number(actualCash || 0));
+          broadcastWebSocketEvent('SHIFT_Z_REPORT_GENERATED', report);
+
+          console.log(`[Shift Z-Report] Shift closed by ${report.cashierId}. Sales: ₹${report.totalSales}, Actual Cash: ₹${report.actualCash}, Variance: ₹${report.cashVariance}`);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, zReport: report }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: (e as Error).message }));
         }
       });
       return;
@@ -296,7 +321,10 @@ async function startServer() {
             dbService.deductStockWithBOMEngine(item.menuItemId, item.quantity);
           }
 
-          // 🖨️ NATIVE ESC/POS BINARY BUFFER GENERATION
+          // 🖨️ MULTI-STATION PRINTER ROUTING
+          printerRouter.routeKOTPrintJobs(orderNum, newOrder.tableId || 'Table 2', validatedItems).catch(() => {});
+
+          // 🖨️ NATIVE ESC/POS RECEIPT BINARY BUFFER
           const escposBuffer = buildThermalReceiptBuffer({
             orderNumber: newOrder.orderNumber,
             tableId: newOrder.tableId || 'Table 2',

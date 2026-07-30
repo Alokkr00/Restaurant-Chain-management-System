@@ -40,6 +40,18 @@ export interface SyncQueueEvent {
   createdAt: string;
 }
 
+export interface ZReport {
+  id: string;
+  cashierId: string;
+  totalSales: number;
+  totalTax: number;
+  ordersCount: number;
+  expectedCash: number;
+  actualCash: number;
+  cashVariance: number;
+  closedAt: string;
+}
+
 export class LocalDatabaseService {
   private dbPath = path.join(process.cwd(), 'data', 'outlet_edge.sqlite');
   private db: Database | null = null;
@@ -130,6 +142,18 @@ export class LocalDatabaseService {
         synced_at TEXT,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS z_reports (
+        id TEXT PRIMARY KEY,
+        cashier_id TEXT NOT NULL,
+        total_sales REAL NOT NULL,
+        total_tax REAL NOT NULL,
+        orders_count INTEGER NOT NULL,
+        expected_cash REAL NOT NULL,
+        actual_cash REAL NOT NULL,
+        cash_variance REAL NOT NULL,
+        closed_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -216,6 +240,45 @@ export class LocalDatabaseService {
       name: row[2] as string,
       role: row[3] as any,
     };
+  }
+
+  // ====================================================
+  // 💵 SHIFT Z-REPORT DAY-END CLOSURE
+  // ====================================================
+  public generateZReport(cashierId: string, actualCash: number): ZReport {
+    if (!this.db) throw new Error('DB Not Initialized');
+    
+    const res = this.db.exec("SELECT COUNT(*), COALESCE(SUM(grand_total), 0), COALESCE(SUM(total_tax), 0) FROM orders");
+    const count = Number(res[0].values[0][0]) || 0;
+    const sales = Number(res[0].values[0][1]) || 0;
+    const tax = Number(res[0].values[0][2]) || 0;
+    const variance = Number((actualCash - sales).toFixed(2));
+
+    const zId = `zrep_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const zReport: ZReport = {
+      id: zId,
+      cashierId,
+      totalSales: sales,
+      totalTax: tax,
+      ordersCount: count,
+      expectedCash: sales,
+      actualCash,
+      cashVariance: variance,
+      closedAt: now,
+    };
+
+    this.db.run(
+      "INSERT INTO z_reports VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [zId, cashierId, sales, tax, count, sales, actualCash, variance, now]
+    );
+
+    this.logAuditTrail('SHIFT_CLOSED', 'SHIFT_CLOSED', cashierId, zReport);
+    this.pushSyncEvent('SHIFT_Z_REPORT_GENERATED', zReport);
+    this.persistSQLite();
+
+    return zReport;
   }
 
   // ====================================================

@@ -1,7 +1,8 @@
 import * as net from 'net';
 import { ESCPOSBuilder, buildThermalReceiptBuffer } from './escpos-builder';
+import { MultiStationPrinterRouter } from './printer-router';
 
-export { ESCPOSBuilder, buildThermalReceiptBuffer };
+export { ESCPOSBuilder, buildThermalReceiptBuffer, MultiStationPrinterRouter };
 
 export interface ThermalPrintJob {
   jobId: string;
