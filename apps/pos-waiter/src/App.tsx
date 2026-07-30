@@ -13,7 +13,10 @@ import {
   Building2, 
   CheckCircle2, 
   Sparkles,
-  Search
+  Search,
+  Printer,
+  Grid,
+  Volume2
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api/v1';
@@ -21,13 +24,21 @@ const API_BASE = 'http://localhost:3001/api/v1';
 export function App() {
   const [activeTab, setActiveTab] = useState<'pos' | 'kds' | 'hq'>('pos');
   
+  // STAFF AUTH PIN STATE
+  const [isLocked, setIsLocked] = useState(true);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
   // POS STATE
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [cart, setCart] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState('Table 2');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [showTableModal, setShowTableModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDishModal, setShowAddDishModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [lastOrderReceipt, setLastOrderReceipt] = useState<any>(null);
   const [newDish, setNewDish] = useState({ name: '', cat: 'cat_mains', station: 'GRILL', price: '' });
 
   // KDS STATE
@@ -41,6 +52,22 @@ export function App() {
     avgFoodCostPct: 30.42,
     outlets: []
   });
+
+  // TABLE FLOOR GRID
+  const tablesList = [
+    { id: 'Table 1', status: 'AVAILABLE', seats: 2 },
+    { id: 'Table 2', status: 'OCCUPIED', seats: 4 },
+    { id: 'Table 3', status: 'AVAILABLE', seats: 4 },
+    { id: 'Table 4', status: 'OCCUPIED', seats: 6 },
+    { id: 'Table 5', status: 'AVAILABLE', seats: 2 },
+    { id: 'Table 6', status: 'AVAILABLE', seats: 4 },
+    { id: 'Table 7', status: 'RESERVED', seats: 4 },
+    { id: 'Table 8', status: 'AVAILABLE', seats: 8 },
+    { id: 'Table 9', status: 'AVAILABLE', seats: 2 },
+    { id: 'Table 10', status: 'OCCUPIED', seats: 4 },
+    { id: 'Table 11', status: 'AVAILABLE', seats: 4 },
+    { id: 'Table 12', status: 'AVAILABLE', seats: 6 },
+  ];
 
   // FETCH MENU
   useEffect(() => {
@@ -60,6 +87,44 @@ export function App() {
       return () => clearInterval(interval);
     }
   }, [activeTab]);
+
+  // PIN AUTH VERIFICATION
+  const handlePinKeyPress = (digit: string) => {
+    if (pinInput.length < 4) {
+      const newPin = pinInput + digit;
+      setPinInput(newPin);
+
+      if (newPin.length === 4) {
+        if (newPin === '1234') {
+          setIsLocked(false);
+          setPinInput('');
+          setPinError(false);
+        } else {
+          setPinError(true);
+          setTimeout(() => {
+            setPinInput('');
+            setPinError(false);
+          }, 600);
+        }
+      }
+    }
+  };
+
+  // WEB AUDIO KDS CHIME
+  const playKdsChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+  };
 
   const fetchMenu = async () => {
     try {
@@ -125,7 +190,9 @@ export function App() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`🔥 Order #${data.order.orderNumber} sent to Kitchen KDS!`);
+        playKdsChime();
+        setLastOrderReceipt(data.order);
+        setShowReceiptModal(true);
         setCart([]);
       }
     } catch (e) {
@@ -188,6 +255,40 @@ export function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
+      {/* STAFF PIN LOCK SCREEN */}
+      {isLocked && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="glass-card" style={{ width: '360px', padding: '32px', textAlign: 'center', border: pinError ? '2px solid #f43f5e' : '1px solid var(--glass-border)' }}>
+            <div style={{ background: 'linear-gradient(135deg, #38bdf8, #6366f1)', width: '64px', height: '64px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+              <Lock size={32} color="#fff" />
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900 }}>Staff PIN Authentication</h2>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '6px 0 20px 0' }}>Enter 4-Digit Security PIN (Default: 1234)</p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+              {[0, 1, 2, 3].map(idx => (
+                <div key={idx} style={{ width: '16px', height: '16px', borderRadius: '50%', background: pinInput.length > idx ? '#38bdf8' : '#334155', transition: 'all 0.2s' }} />
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+              {['1','2','3','4','5','6','7','8','9','C','0','←'].map(key => (
+                <button 
+                  key={key} 
+                  onClick={() => {
+                    if (key === 'C') setPinInput('');
+                    else if (key === '←') setPinInput(pinInput.slice(0, -1));
+                    else handlePinKeyPress(key);
+                  }}
+                  className="touch-control-btn" style={{ width: '100%', height: '56px', fontSize: '1.4rem' }}>
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* REACT GLASSMORPHISM NAVBAR */}
       <header className="glass-card" style={{ margin: '12px 16px', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -195,8 +296,8 @@ export function App() {
             <Sparkles size={24} color="#fff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, letterSpacing: '-0.5px' }}>RCMS REACT SUITE</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Enterprise Restaurant Chain OS</p>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 900, letterSpacing: '-0.5px' }}>RCMS ENTERPRISE SUITE</h1>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Rahul Sharma (Staff #104)</p>
           </div>
         </div>
 
@@ -223,6 +324,9 @@ export function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span className="badge-status badge-emerald">🟢 Server Connected</span>
+          <button onClick={() => setIsLocked(true)} style={{ background: 'rgba(244,63,94,0.15)', color: '#fb7185', border: '1px solid rgba(244,63,94,0.3)', padding: '8px 14px', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Lock size={16} /> Lock
+          </button>
         </div>
       </header>
 
@@ -245,6 +349,10 @@ export function App() {
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowTableModal(true)} style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '10px 16px', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Grid size={18} color="#38bdf8" /> {selectedTable}
+                </button>
+
                 <button className="btn-emerald" onClick={() => setShowAddDishModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Plus size={18} /> Add Dish
                 </button>
@@ -271,7 +379,7 @@ export function App() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                     <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#34d399' }}>₹{item.price}</span>
-                    <button className="btn-cyan" style={{ padding: '6px 12px', borderRadius: '8px' }}>+</button>
+                    <button className="touch-control-btn" style={{ background: '#38bdf8', color: '#000' }}>+</button>
                   </div>
                 </div>
               ))}
@@ -302,9 +410,9 @@ export function App() {
                         <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>₹{item.price} × {item.qty}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button onClick={() => updateQty(item.id, -1)} style={{ width: '32px', height: '32px', background: '#334155', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 800, cursor: 'pointer' }}>-</button>
-                        <span style={{ fontWeight: 800 }}>{item.qty}</span>
-                        <button onClick={() => updateQty(item.id, 1)} style={{ width: '32px', height: '32px', background: '#334155', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 800, cursor: 'pointer' }}>+</button>
+                        <button onClick={() => updateQty(item.id, -1)} className="touch-control-btn">-</button>
+                        <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{item.qty}</span>
+                        <button onClick={() => updateQty(item.id, 1)} className="touch-control-btn">+</button>
                       </div>
                     </div>
                   ))
@@ -345,10 +453,15 @@ export function App() {
                 </button>
               ))}
             </div>
-            <span className="badge-status badge-amber">🟢 Live Polling Active</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button onClick={playKdsChime} style={{ background: '#334155', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Volume2 size={16} /> Test Chime
+              </button>
+              <span className="badge-status badge-amber">🟢 Live KDS Stream</span>
+            </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
             {kdsTickets.map(t => (
               <div key={t.id} className="glass-card" style={{ padding: '20px', borderLeft: '6px solid #f59e0b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -356,14 +469,14 @@ export function App() {
                     <h3 style={{ fontSize: '1.4rem', fontWeight: 900 }}>{t.orderNumber}</h3>
                     <p style={{ color: '#94a3b8', fontWeight: 700 }}>{t.table}</p>
                   </div>
-                  <span className="badge-status badge-amber">ACTIVE</span>
+                  <span className="badge-status badge-emerald">🟢 02m Elapsed</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
                   {t.items.filter((i: any) => kdsStation === 'ALL' || i.station === kdsStation).map((item: any) => (
-                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15,23,42,0.6)', padding: '10px', borderRadius: '8px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>{item.quantity || item.qty}x {item.itemName || item.name}</span>
-                      <button onClick={() => bumpKdsItem(item.id)} style={{ padding: '6px 14px', background: item.kdsStatus === 'COOKING' ? '#10b981' : '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', fontWeight: 800, cursor: 'pointer' }}>
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15,23,42,0.6)', padding: '12px', borderRadius: '10px' }}>
+                      <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{item.quantity || item.qty}x {item.itemName || item.name}</span>
+                      <button onClick={() => bumpKdsItem(item.id)} className="touch-control-btn" style={{ width: 'auto', padding: '0 16px', background: item.kdsStatus === 'COOKING' ? '#10b981' : '#f59e0b', color: '#000', fontSize: '0.9rem' }}>
                         {item.kdsStatus === 'PENDING' ? '▶️ COOK' : '✓ BUMP'}
                       </button>
                     </div>
@@ -418,6 +531,75 @@ export function App() {
             </table>
           </div>
         </main>
+      )}
+
+      {/* TABLE SELECTOR MODAL */}
+      {showTableModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+          <div className="glass-card" style={{ width: '500px', padding: '24px' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '16px' }}>🪑 Select Dining Floor Table</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              {tablesList.map(t => (
+                <button 
+                  key={t.id} 
+                  onClick={() => { setSelectedTable(t.id); setShowTableModal(false); }}
+                  style={{ padding: '16px', borderRadius: '12px', border: selectedTable === t.id ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)', background: t.status === 'OCCUPIED' ? 'rgba(245,158,11,0.2)' : 'rgba(15,23,42,0.6)', color: '#fff', cursor: 'pointer', textAlign: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>{t.id}</div>
+                  <div style={{ fontSize: '0.75rem', color: t.status === 'OCCUPIED' ? '#fbbf24' : '#34d399', marginTop: '4px' }}>{t.status}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowTableModal(false)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: 'none', background: '#334155', color: '#fff', fontWeight: 700 }}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* THERMAL ESC/POS RECEIPT PRINT MODAL */}
+      {showReceiptModal && lastOrderReceipt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+            <div className="thermal-receipt">
+              <h2>RCMS RESTAURANT</h2>
+              <p style={{ textAlign: 'center', fontSize: '0.8rem' }}>Connaught Place Flagship #01</p>
+              <div className="receipt-line" />
+              <p><strong>Order #:</strong> {lastOrderReceipt.orderNumber}</p>
+              <p><strong>Table:</strong> {lastOrderReceipt.tableId}</p>
+              <p><strong>Waiter:</strong> {lastOrderReceipt.waiterId}</p>
+              <p><strong>Time:</strong> {new Date().toLocaleTimeString()}</p>
+              <div className="receipt-line" />
+              {(lastOrderReceipt.items || []).map((i: any, idx: number) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span>{i.quantity}x {i.itemName}</span>
+                  <span>₹{i.subtotal}</span>
+                </div>
+              ))}
+              <div className="receipt-line" />
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Subtotal:</span>
+                <span>₹{lastOrderReceipt.subtotal}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>GST (5%):</span>
+                <span>₹{lastOrderReceipt.totalTax}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '6px' }}>
+                <span>TOTAL:</span>
+                <span>₹{lastOrderReceipt.grandTotal}</span>
+              </div>
+              <div className="receipt-line" />
+              <p style={{ textAlign: 'center', fontSize: '0.8rem' }}>Thank you! Visit again.</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn-emerald" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Printer size={18} /> Print Receipt
+              </button>
+              <button onClick={() => setShowReceiptModal(false)} style={{ padding: '12px 20px', borderRadius: '12px', border: 'none', background: '#334155', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ADD DISH MODAL */}

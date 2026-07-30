@@ -12,7 +12,7 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
-const ROOT_DIR = process.cwd();
+const ROOT_DIR = path.resolve(__dirname, '../../..');
 
 function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
   fs.readFile(filePath, (err, data) => {

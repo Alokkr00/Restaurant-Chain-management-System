@@ -57,6 +57,7 @@ body {
   border: none;
   border-radius: var(--radius-md);
   padding: 12px 20px;
+  min-height: 48px;
   cursor: pointer;
   box-shadow: 0 4px 14px 0 rgba(56, 189, 248, 0.35);
   transition: all 0.2s ease;
@@ -74,6 +75,7 @@ body {
   border: none;
   border-radius: var(--radius-md);
   padding: 12px 20px;
+  min-height: 48px;
   cursor: pointer;
   box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.35);
   transition: all 0.2s ease;
@@ -84,15 +86,40 @@ body {
   box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.5);
 }
 
+/* TOUCH TARGET CONTROLS (MIN 48x48PX) */
+.touch-control-btn {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #334155;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.touch-control-btn:hover {
+  background: #475569;
+}
+
+.touch-control-btn:active {
+  transform: scale(0.95);
+}
+
 /* BADGES */
 .badge-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .badge-emerald {
@@ -111,4 +138,26 @@ body {
   background: rgba(244, 63, 94, 0.15);
   color: #fb7185;
   border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+/* THERMAL RECEIPT MODAL STYLING */
+.thermal-receipt {
+  background: #fff;
+  color: #000;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 20px;
+  border-radius: 8px;
+  width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.thermal-receipt h2 {
+  font-size: 1.2rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.thermal-receipt .receipt-line {
+  border-top: 1px dashed #000;
+  margin: 10px 0;
 }

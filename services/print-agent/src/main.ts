@@ -38,20 +38,26 @@ export class ESCPOSPrintAgent {
       const client = new net.Socket();
       client.setTimeout(3000);
 
+      const cleanup = () => {
+        client.removeAllListeners();
+        client.destroy();
+      };
+
       client.connect(port, host, () => {
         client.write(data, () => {
           client.end();
+          cleanup();
           resolve();
         });
       });
 
       client.on('error', (err) => {
-        client.destroy();
+        cleanup();
         reject(err);
       });
 
       client.on('timeout', () => {
-        client.destroy();
+        cleanup();
         reject(new Error(`TCP Socket connection timeout to ${host}:${port}`));
       });
     });
