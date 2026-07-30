@@ -1,11 +1,33 @@
-node_modules
-dist
-.next
-.turbo
-*.log
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs & caches
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Generated JS from TS (when building in source dirs)
+packages/*/*.js
+packages/*/*.d.ts
+packages/*/*.js.map
+packages/*/*.d.ts.map
+apps/*/*.js
+apps/*/*.d.ts
+apps/*/*.js.map
+apps/*/*.d.ts.map
+services/*/*.js
+services/*/*.d.ts
+services/*/*.js.map
+
+# Environment & Logs
 .env
 .env.local
-.env.production
-*.sqlite
-*.sqlite-journal
-*.db
+*.log
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

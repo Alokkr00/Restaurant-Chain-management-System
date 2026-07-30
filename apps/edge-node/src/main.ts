@@ -3,28 +3,24 @@ import { Order, OrderType, OrderStatus } from '@rcms/shared-types';
 import { LocalDatabaseService } from './database/local-db.service';
 import { InventoryService } from './modules/inventory/inventory.service';
 
-async function bootstrapEdgeNode() {
-  console.log('----------------------------------------------------');
-  console.log('🚀 RCMS Local Edge Node (Outlet Master) Scaffolding');
-  console.log('----------------------------------------------------');
-
+async function bootstrap() {
   const dbService = new LocalDatabaseService();
   const inventoryService = new InventoryService();
 
   await dbService.initialize();
 
-  const sampleOrder: Order = {
-    id: 'ord_edge_1001',
+  const order: Order = {
+    id: 'ord_1001',
     outletId: 'outlet_flagship_01',
     orderNumber: 'KOT-1001',
-    tableId: 'Table 4',
-    waiterId: 'waiter_04',
+    tableId: 'Table 2',
+    waiterId: 'usr_waiter_01',
     orderType: OrderType.DINE_IN,
     status: OrderStatus.PLACED,
     items: [
       {
         id: 'item_1',
-        orderId: 'ord_edge_1001',
+        orderId: 'ord_1001',
         menuItemId: 'item_butter_chicken',
         itemName: 'Butter Chicken',
         unitPrice: 350,
@@ -44,14 +40,14 @@ async function bootstrapEdgeNode() {
     updatedAt: new Date().toISOString(),
   };
 
-  await dbService.saveOrder(sampleOrder);
-  console.log(`[EdgeNode] Order ${sampleOrder.orderNumber} initialized in local state.`);
-
-  const depletions = inventoryService.processOrderStockDepletion('item_butter_chicken', 2);
-  console.log(`[EdgeNode] BOM Depletion calculation executed for 2x Butter Chicken.`);
-
+  await dbService.saveOrder(order);
+  inventoryService.processOrderStockDepletion('item_butter_chicken', 2);
   const pendingEvents = await dbService.getPendingSyncEvents();
-  console.log(`[EdgeNode] Event log queue ready. Pending sync items: ${pendingEvents.length}`);
+
+  console.log(`[Edge Node] Local Edge Server initialized. Order #${order.orderNumber} created. Pending sync queue: ${pendingEvents.length} events.`);
 }
 
-bootstrapEdgeNode().catch((err) => console.error('Edge Node bootstrap error:', err));
+bootstrap().catch((err) => {
+  console.error('[Edge Node] Boot error:', err);
+  process.exit(1);
+});

@@ -2,21 +2,20 @@ import { MenuService } from './modules/menu/menu.service';
 import { UserService } from './modules/user/user.service';
 import { HQReportingService } from './modules/reporting/hq-reporting.service';
 
-console.log('----------------------------------------------------');
-console.log('☁️  RCMS AWS Cloud API Gateway Scaffolding');
-console.log('----------------------------------------------------');
+async function bootstrap() {
+  const menuService = new MenuService();
+  const userService = new UserService();
+  const hqReportingService = new HQReportingService();
 
-const menuService = new MenuService();
-const userService = new UserService();
-const hqReportingService = new HQReportingService();
+  const categories = menuService.getCategories();
+  const menuItems = menuService.getMenuItems();
+  const users = userService.getUsersByOutlet('outlet_flagship_01');
+  const summary = hqReportingService.getMultiOutletSummary();
 
-const categories = menuService.getCategories();
-const menuItems = menuService.getMenuItems();
-const flagshipUsers = userService.getUsersByOutlet('outlet_flagship_01');
+  console.log(`[Cloud API] Server running. Outlets: ${summary.outlets.length}, Menu Items: ${menuItems.length}, Categories: ${categories.length}, Active Users: ${users.length}`);
+}
 
-console.log(`[CloudAPI] Initialized Menu Categories (${categories.length}):`, categories.map((c) => c.name));
-console.log(`[CloudAPI] Initialized Menu Items (${menuItems.length}):`, menuItems.map((m) => `${m.name} (₹${m.basePrice})`));
-console.log(`[CloudAPI] Flagship Outlet Staff Active (${flagshipUsers.length}):`, flagshipUsers.map((u) => `${u.name} [${u.role}]`));
-
-const summary = hqReportingService.getMultiOutletSummary();
-console.log(`[CloudAPI] HQ Summary Aggregator initialized. Total outlets tracked: ${summary.outlets.length}`);
+bootstrap().catch((err) => {
+  console.error('[Cloud API] Boot error:', err);
+  process.exit(1);
+});
