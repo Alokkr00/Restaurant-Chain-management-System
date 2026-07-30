@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RCMS — HQ Executive Analytics</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- HQ HEADER NAVBAR -->
+  <header class="hq-header">
+    <div class="hq-brand">
+      <span class="hq-logo">🌐</span>
+      <span class="hq-title">RCMS HQ COMMAND CENTER</span>
+    </div>
+    <div class="hq-meta">
+      <span class="meta-chip">7 Outlets Online</span>
+      <span class="meta-chip active">Phase 1 Pilot Active</span>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD -->
+  <main class="hq-main">
+    
+    <!-- 5-SECOND ANSWER: MONEY & LEAKAGE HERO BAR -->
+    <section class="leakage-hero">
+      <div class="hero-card total-sales">
+        <span class="card-label">Chain Today's Sales</span>
+        <span class="card-value">₹1,46,500</span>
+        <span class="card-sub">240 Orders Processed</span>
+      </div>
+
+      <div class="hero-card food-cost warning">
+        <span class="card-label">Chain Avg Food Cost %</span>
+        <span class="card-value">30.42%</span>
+        <span class="card-sub alert">⚠️ Target: 28.00% (+2.42% Leakage)</span>
+      </div>
+
+      <div class="hero-card leakage-alert">
+        <span class="card-label">Top Leakage Alert</span>
+        <span class="card-value">Cooking Butter</span>
+        <span class="card-sub">CyberHub: 18.5% Prep Wastage</span>
+      </div>
+    </section>
+
+    <!-- MULTI-OUTLET COMPARISON TABLE -->
+    <section class="outlet-section">
+      <div class="section-header">
+        <h2>📊 Multi-Outlet Performance Comparison</h2>
+        <span class="time-range">Real-Time Sync</span>
+      </div>
+
+      <table class="outlet-table">
+        <thead>
+          <tr>
+            <th>Outlet Name</th>
+            <th>Location</th>
+            <th>Orders</th>
+            <th>Sales Total</th>
+            <th>Food Cost %</th>
+            <th>Avg Ticket Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="outlet-name-cell">Connaught Place</td>
+            <td>New Delhi (Flagship)</td>
+            <td>142</td>
+            <td class="sales-val">₹84,500</td>
+            <td><span class="pct-chip green">30.0%</span></td>
+            <td>6.4 mins</td>
+            <td><span class="status-dot green"></span> Live</td>
+          </tr>
+          <tr>
+            <td class="outlet-name-cell">Gurugram CyberHub</td>
+            <td>Gurugram</td>
+            <td>98</td>
+            <td class="sales-val">₹62,000</td>
+            <td><span class="pct-chip red">31.0%</span></td>
+            <td>8.2 mins</td>
+            <td><span class="status-dot green"></span> Live</td>
+          </tr>
+          <tr>
+            <td class="outlet-name-cell">Indiranagar 100ft</td>
+            <td>Bengaluru</td>
+            <td>--</td>
+            <td class="sales-val">₹0</td>
+            <td><span class="pct-chip">--</span></td>
+            <td>--</td>
+            <td><span class="status-dot amber"></span> Onboarding</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+</body>
+</html>

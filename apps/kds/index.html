@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RCMS — Kitchen Display System (KDS)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- KDS NAVBAR -->
+  <header class="kds-navbar">
+    <div class="kds-brand">
+      <span class="station-icon">🔥</span>
+      <span class="brand-title">KDS STATION DISPLAY</span>
+      <span class="outlet-name">Flagship Outlet (Connaught Place)</span>
+    </div>
+
+    <!-- AGGRESSIVE STATION FILTERING -->
+    <div class="station-filters" id="station-filters">
+      <button class="station-btn active" onclick="switchStation('GRILL')">🔥 GRILL STATION</button>
+      <button class="station-btn" onclick="switchStation('FRY')">🍟 FRY STATION</button>
+      <button class="station-btn" onclick="switchStation('COLD')">🥗 COLD / SALAD</button>
+      <button class="station-btn" onclick="switchStation('BAR')">🍹 BAR</button>
+      <button class="station-btn" onclick="switchStation('ALL')">🌐 ALL STATIONS</button>
+    </div>
+
+    <div class="kds-clock" id="live-clock">14:55:20</div>
+  </header>
+
+  <!-- KDS TICKET GRID -->
+  <main class="kds-container">
+    <div class="kds-grid" id="kds-ticket-grid">
+      <!-- Dynamic Kitchen Tickets Injected Here -->
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
