@@ -1,4 +1,6 @@
 import * as http from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
 import { calculateGST } from '@rcms/gst-engine';
 import { Order, OrderType, OrderStatus } from '@rcms/shared-types';
 import { LocalDatabaseService } from './database/local-db.service';
@@ -10,11 +12,25 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
+// Root workspace directory (e:\Books)
+const ROOT_DIR = path.resolve(__dirname, '../../../..');
+
+function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('404 Not Found');
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    }
+  });
+}
+
 async function startServer() {
   await dbService.initialize();
 
   const server = http.createServer(async (req, res) => {
-    // CORS headers for local LAN / web frontend connection
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,7 +43,47 @@ async function startServer() {
 
     const url = req.url || '';
 
-    // 1. GET /api/v1/menu
+    // ==========================================
+    // 🌐 FRONTEND STATIC ROUTING
+    // ==========================================
+    if (url === '/' || url === '/pos' || url === '/pos/' || url === '/pos/index.html') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/index.html'), 'text/html');
+      return;
+    }
+    if (url === '/pos/styles.css') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/styles.css'), 'text/css');
+      return;
+    }
+    if (url === '/pos/app.js') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/app.js'), 'application/javascript');
+      return;
+    }
+
+    if (url === '/kds' || url === '/kds/' || url === '/kds/index.html') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/index.html'), 'text/html');
+      return;
+    }
+    if (url === '/kds/styles.css') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/styles.css'), 'text/css');
+      return;
+    }
+    if (url === '/kds/app.js') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/app.js'), 'application/javascript');
+      return;
+    }
+
+    if (url === '/hq' || url === '/hq/' || url === '/hq/index.html') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/index.html'), 'text/html');
+      return;
+    }
+    if (url === '/hq/styles.css') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
+      return;
+    }
+
+    // ==========================================
+    // 📡 REST API ENDPOINTS
+    // ==========================================
     if (req.method === 'GET' && url === '/api/v1/menu') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
@@ -46,14 +102,12 @@ async function startServer() {
       return;
     }
 
-    // 2. GET /api/v1/kds/tickets
     if (req.method === 'GET' && url.startsWith('/api/v1/kds/tickets')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, tickets: liveKdsTickets }));
       return;
     }
 
-    // 3. POST /api/v1/orders (Received from POS Waiter PWA)
     if (req.method === 'POST' && url === '/api/v1/orders') {
       let body = '';
       req.on('data', (chunk) => (body += chunk));
@@ -61,7 +115,6 @@ async function startServer() {
         try {
           const payload = JSON.parse(body);
           const orderNum = `KOT-${Math.floor(1000 + Math.random() * 9000)}`;
-          
           const tax = calculateGST(payload.subtotal || 700);
 
           const newOrder: Order = {
@@ -84,12 +137,10 @@ async function startServer() {
           await dbService.saveOrder(newOrder);
           liveOrders.push(newOrder);
 
-          // Stock depletion via BOM Engine
           for (const item of newOrder.items) {
             inventoryService.processOrderStockDepletion(item.menuItemId, item.quantity);
           }
 
-          // Push ticket to KDS state
           liveKdsTickets.push({
             id: newOrder.id,
             orderNumber: newOrder.orderNumber,
@@ -104,7 +155,7 @@ async function startServer() {
             status: 'PENDING',
           });
 
-          console.log(`[Edge Node HTTP] Order #${orderNum} created. Pushed to KDS. GST Tax calculated: ₹${tax.totalTax}`);
+          console.log(`[Edge Node HTTP] Order #${orderNum} created. Pushed to KDS. GST Tax: ₹${tax.totalTax}`);
 
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, order: newOrder }));
@@ -116,7 +167,6 @@ async function startServer() {
       return;
     }
 
-    // 4. POST /api/v1/kds/bump
     if (req.method === 'POST' && url === '/api/v1/kds/bump') {
       let body = '';
       req.on('data', (chunk) => (body += chunk));
@@ -139,14 +189,20 @@ async function startServer() {
       return;
     }
 
-    // Default 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Endpoint not found' }));
   });
 
   const PORT = 3001;
   server.listen(PORT, () => {
-    console.log(`[Local Edge Node] HTTP REST Server listening live on http://localhost:${PORT}`);
+    console.log(`\n====================================================`);
+    console.log(`🚀 RCMS FULL-STACK SYSTEM IS LIVE & LISTENING!`);
+    console.log(`====================================================`);
+    console.log(`📱 POS Waiter PWA UI:       http://localhost:${PORT}/pos`);
+    console.log(`📺 Kitchen Display (KDS):   http://localhost:${PORT}/kds`);
+    console.log(`📊 Cloud HQ Dashboard:     http://localhost:${PORT}/hq`);
+    console.log(`📡 Backend REST API:        http://localhost:${PORT}/api/v1/menu`);
+    console.log(`====================================================\n`);
   });
 }
 
