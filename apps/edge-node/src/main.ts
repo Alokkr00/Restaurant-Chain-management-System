@@ -98,17 +98,11 @@ async function startServer() {
           const { name, cat, price, station } = JSON.parse(body);
           if (!name || !price || !cat || !station) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: 'Missing required fields: name, cat, price, station' }));
+            res.end(JSON.stringify({ success: false, error: 'Missing required fields' }));
             return;
           }
 
-          const newItem = dbService.addMenuItem({
-            name,
-            cat,
-            price: Number(price),
-            station,
-          });
-
+          const newItem = dbService.addMenuItem({ name, cat, price: Number(price), station });
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, item: newItem }));
         } catch (err) {
@@ -122,13 +116,8 @@ async function startServer() {
     if (req.method === 'DELETE' && url.startsWith('/api/v1/menu/')) {
       const itemId = url.split('/api/v1/menu/')[1];
       const removed = dbService.removeMenuItem(itemId);
-      if (removed) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: `Item ${itemId} removed` }));
-      } else {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Item not found' }));
-      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: removed }));
       return;
     }
 
@@ -148,7 +137,31 @@ async function startServer() {
         try {
           const payload = JSON.parse(body);
           const orderNum = `KOT-${Math.floor(1000 + Math.random() * 9000)}`;
-          const tax = calculateGST(payload.subtotal || 700);
+
+          // SERVER-SIDE PRICE & GST VALIDATION
+          const dbMenu = dbService.getMenuItems();
+          let serverSubtotal = 0;
+          const validatedItems = (payload.items || []).map((item: any) => {
+            const dbItem = dbMenu.find((m) => m.id === item.menuItemId);
+            const verifiedPrice = dbItem ? dbItem.price : item.unitPrice;
+            const lineSubtotal = verifiedPrice * item.quantity;
+            serverSubtotal += lineSubtotal;
+
+            return {
+              id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              menuItemId: item.menuItemId,
+              itemName: item.itemName,
+              quantity: item.quantity,
+              unitPrice: verifiedPrice,
+              subtotal: lineSubtotal,
+              station: item.station || 'GRILL',
+              kdsStatus: 'PENDING', // Item-level status tracking
+              notes: item.notes || '',
+            };
+          });
+
+          const tax = calculateGST(serverSubtotal);
+          const serverGrandTotal = Number((serverSubtotal + tax.totalTax).toFixed(2));
 
           const newOrder: Order = {
             id: `ord_${Date.now()}`,
@@ -158,11 +171,11 @@ async function startServer() {
             waiterId: payload.waiterId || 'usr_waiter_01',
             orderType: OrderType.DINE_IN,
             status: OrderStatus.PLACED,
-            items: payload.items || [],
-            subtotal: payload.subtotal,
+            items: validatedItems,
+            subtotal: serverSubtotal,
             totalTax: tax.totalTax,
             discountAmount: 0,
-            grandTotal: payload.grandTotal,
+            grandTotal: serverGrandTotal,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
@@ -174,21 +187,16 @@ async function startServer() {
             inventoryService.processOrderStockDepletion(item.menuItemId, item.quantity);
           }
 
+          // Item-level KDS ticket tracking
           liveKdsTickets.push({
             id: newOrder.id,
             orderNumber: newOrder.orderNumber,
             table: newOrder.tableId,
             placedMinutesAgo: 0,
-            items: newOrder.items.map((i: any) => ({
-              name: i.itemName,
-              qty: i.quantity,
-              station: i.station || 'GRILL',
-              notes: i.notes || '',
-            })),
-            status: 'PENDING',
+            items: validatedItems,
           });
 
-          console.log(`[Edge Node HTTP] Order #${orderNum} created. GST Tax: ₹${tax.totalTax}`);
+          console.log(`[Edge Node HTTP] Order #${orderNum} created. Server Subtotal: ₹${serverSubtotal}, Tax: ₹${tax.totalTax}, Grand Total: ₹${serverGrandTotal}`);
 
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, order: newOrder }));
@@ -200,20 +208,28 @@ async function startServer() {
       return;
     }
 
+    // ITEM-LEVEL KDS BUMPING (Prevents Grill bump from clearing Bar items)
     if (req.method === 'POST' && url === '/api/v1/kds/bump') {
       let body = '';
       req.on('data', (chunk) => (body += chunk));
       req.on('end', () => {
         try {
-          const { ticketId } = JSON.parse(body);
-          const ticket = liveKdsTickets.find((t) => t.id === ticketId);
-          if (ticket) {
-            if (ticket.status === 'PENDING') ticket.status = 'COOKING';
-            else if (ticket.status === 'COOKING') ticket.status = 'BUMPED';
-            console.log(`[Edge Node HTTP] KDS Ticket #${ticket.orderNumber} status changed to ${ticket.status}`);
+          const { itemId } = JSON.parse(body);
+          let itemFound = false;
+
+          for (const ticket of liveKdsTickets) {
+            const item = ticket.items.find((i: any) => i.id === itemId);
+            if (item) {
+              if (item.kdsStatus === 'PENDING') item.kdsStatus = 'COOKING';
+              else if (item.kdsStatus === 'COOKING') item.kdsStatus = 'BUMPED';
+              itemFound = true;
+              console.log(`[Edge Node HTTP] Item-level KDS bump: "${item.itemName}" on #${ticket.orderNumber} is now ${item.kdsStatus}`);
+              break;
+            }
           }
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, ticket }));
+          res.end(JSON.stringify({ success: itemFound }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: (err as Error).message }));
@@ -234,7 +250,6 @@ async function startServer() {
     console.log(`📱 POS Waiter PWA UI:       http://localhost:${PORT}/pos`);
     console.log(`📺 Kitchen Display (KDS):   http://localhost:${PORT}/kds`);
     console.log(`📊 Cloud HQ Dashboard:     http://localhost:${PORT}/hq`);
-    console.log(`📡 Backend REST API:        http://localhost:${PORT}/api/v1/menu`);
     console.log(`====================================================\n`);
   });
 }

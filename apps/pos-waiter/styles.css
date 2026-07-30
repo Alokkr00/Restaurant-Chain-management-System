@@ -90,7 +90,7 @@ body {
 }
 
 .cart-panel {
-  width: 400px;
+  width: 420px;
   background-color: var(--panel-bg);
   display: flex;
   flex-direction: column;
@@ -210,7 +210,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 130px;
+  height: 140px;
   cursor: pointer;
 }
 
@@ -235,16 +235,20 @@ body {
   color: var(--accent-green);
 }
 
+/* FITTS'S LAW TOUCH TARGET ENFORCEMENT (MIN 48PX) */
 .btn-add {
-  height: 36px;
-  width: 36px;
+  height: var(--touch-target);
+  width: var(--touch-target);
   background-color: var(--accent-blue);
   color: #000;
   border: none;
   border-radius: 8px;
   font-weight: 800;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* CART PANEL */
@@ -322,18 +326,23 @@ body {
 .cart-qty-ctrl {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* FITTS'S LAW TOUCH TARGET ENFORCEMENT (48PX X 48PX) */
 .qty-btn {
-  width: 32px;
-  height: 32px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   background-color: var(--border-color);
   color: var(--text-main);
   border: none;
-  border-radius: 6px;
-  font-weight: 700;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 1.2rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* SUMMARY & CHECKOUT */
@@ -390,7 +399,7 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 24px;
-  width: 340px;
+  width: 360px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -451,14 +460,27 @@ body {
   width: 100%;
 }
 
+/* FITTS'S LAW TOUCH TARGET ENFORCEMENT (48PX HEIGHT) */
 .quick-chip {
   flex: 1;
-  height: 36px;
+  height: var(--touch-target);
   background-color: var(--card-bg);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* PIN KEYCARD ERROR SHAKE ANIMATION */
+.shake {
+  animation: pin-shake 0.35s ease-in-out;
+  border-color: var(--accent-red) !important;
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
 }
