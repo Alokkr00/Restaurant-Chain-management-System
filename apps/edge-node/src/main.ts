@@ -1,6 +1,7 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import { WebSocketServer, WebSocket } from 'ws';
 import { calculateGST } from '@rcms/gst-engine';
 import { Order, OrderType, OrderStatus } from '@rcms/shared-types';
 import { LocalDatabaseService } from './database/local-db.service';
@@ -12,7 +13,18 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
-const ROOT_DIR = path.resolve(__dirname, '../../..');
+const ROOT_DIR = process.cwd();
+let wss: WebSocketServer;
+
+function broadcastWebSocketEvent(eventType: string, payload: any) {
+  if (!wss) return;
+  const message = JSON.stringify({ type: eventType, payload, timestamp: new Date().toISOString() });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
 
 function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
   fs.readFile(filePath, (err, data) => {
@@ -142,6 +154,8 @@ async function startServer() {
           }
 
           const newItem = dbService.addMenuItem({ name, cat, price: Number(price), station });
+          broadcastWebSocketEvent('MENU_UPDATED', { action: 'ADD', item: newItem });
+
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, item: newItem }));
         } catch (err) {
@@ -155,6 +169,9 @@ async function startServer() {
     if (req.method === 'DELETE' && url.startsWith('/api/v1/menu/')) {
       const itemId = url.split('/api/v1/menu/')[1];
       const removed = dbService.removeMenuItem(itemId);
+      if (removed) {
+        broadcastWebSocketEvent('MENU_UPDATED', { action: 'DELETE', itemId });
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: removed }));
       return;
@@ -226,15 +243,19 @@ async function startServer() {
             inventoryService.processOrderStockDepletion(item.menuItemId, item.quantity);
           }
 
-          liveKdsTickets.push({
+          const kdsTicket = {
             id: newOrder.id,
             orderNumber: newOrder.orderNumber,
             table: newOrder.tableId,
             placedMinutesAgo: 0,
             items: validatedItems,
-          });
+          };
+          liveKdsTickets.push(kdsTicket);
 
-          console.log(`[Edge Node HTTP] Order #${orderNum} created. Server Subtotal: ₹${serverSubtotal}, Tax: ₹${tax.totalTax}, Grand Total: ₹${serverGrandTotal}`);
+          // ⚡ BROADCAST WEBSOCKET INSTANT KOT TICKET
+          broadcastWebSocketEvent('ORDER_PLACED', { order: newOrder, kdsTicket });
+
+          console.log(`[Edge Node HTTP & WSS] Order #${orderNum} created. Subtotal: ₹${serverSubtotal}, Tax: ₹${tax.totalTax}, Grand Total: ₹${serverGrandTotal}`);
 
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, order: newOrder }));
@@ -253,6 +274,7 @@ async function startServer() {
         try {
           const { itemId } = JSON.parse(body);
           let itemFound = false;
+          let bumpedItem: any = null;
 
           for (const ticket of liveKdsTickets) {
             const item = ticket.items.find((i: any) => i.id === itemId);
@@ -260,9 +282,14 @@ async function startServer() {
               if (item.kdsStatus === 'PENDING') item.kdsStatus = 'COOKING';
               else if (item.kdsStatus === 'COOKING') item.kdsStatus = 'BUMPED';
               itemFound = true;
-              console.log(`[Edge Node HTTP] Item-level KDS bump: "${item.itemName}" on #${ticket.orderNumber} is now ${item.kdsStatus}`);
+              bumpedItem = item;
+              console.log(`[Edge Node HTTP & WSS] Item-level KDS bump: "${item.itemName}" on #${ticket.orderNumber} is now ${item.kdsStatus}`);
               break;
             }
+          }
+
+          if (itemFound && bumpedItem) {
+            broadcastWebSocketEvent('ITEM_BUMPED', { itemId, kdsStatus: bumpedItem.kdsStatus });
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -279,6 +306,13 @@ async function startServer() {
     res.end('404 Not Found');
   });
 
+  // ATTACH WEBSOCKET SERVER
+  wss = new WebSocketServer({ server });
+  wss.on('connection', (ws) => {
+    console.log(`[WebSocket Server] Client connected. Active clients: ${wss.clients.size}`);
+    ws.send(JSON.stringify({ type: 'CONNECTED', message: 'Connected to Edge Node WebSocket Stream' }));
+  });
+
   const PORT = 3001;
   server.listen(PORT, () => {
     console.log(`\n====================================================`);
@@ -287,6 +321,7 @@ async function startServer() {
     console.log(`📱 React POS Waiter PWA:    http://localhost:${PORT}/pos`);
     console.log(`📺 React Kitchen Display:   http://localhost:${PORT}/kds`);
     console.log(`📊 React HQ Dashboard:      http://localhost:${PORT}/hq`);
+    console.log(`⚡ Live WebSocket Stream:   ws://localhost:${PORT}`);
     console.log(`====================================================\n`);
   });
 }

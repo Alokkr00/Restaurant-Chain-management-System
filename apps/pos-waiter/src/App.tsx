@@ -16,13 +16,16 @@ import {
   Search,
   Printer,
   Grid,
-  Volume2
+  Volume2,
+  Zap
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api/v1';
+const WS_URL = 'ws://localhost:3001';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'pos' | 'kds' | 'hq'>('pos');
+  const [wsConnected, setWsConnected] = useState(false);
   
   // STAFF AUTH PIN STATE
   const [isLocked, setIsLocked] = useState(true);
@@ -69,24 +72,53 @@ export function App() {
     { id: 'Table 12', status: 'AVAILABLE', seats: 6 },
   ];
 
-  // FETCH MENU
+  // FETCH INITIAL DATA
   useEffect(() => {
     fetchMenu();
+    fetchKdsTickets();
+    fetchHqMetrics();
   }, []);
 
-  // POLL DATA BASED ON ACTIVE TAB
+  // WEBSOCKET REAL-TIME STREAMING CONNECTION
   useEffect(() => {
-    if (activeTab === 'kds') {
-      fetchKdsTickets();
-      const interval = setInterval(fetchKdsTickets, 3000);
-      return () => clearInterval(interval);
-    }
-    if (activeTab === 'hq') {
-      fetchHqMetrics();
-      const interval = setInterval(fetchHqMetrics, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTab]);
+    let ws: WebSocket;
+
+    const connectWs = () => {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        console.log('[WS] Connected to live Edge Node stream.');
+        setWsConnected(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('[WS Packet Received]:', data.type);
+
+          if (data.type === 'ORDER_PLACED') {
+            playKdsChime();
+            fetchKdsTickets();
+            fetchHqMetrics();
+          } else if (data.type === 'ITEM_BUMPED') {
+            fetchKdsTickets();
+          } else if (data.type === 'MENU_UPDATED') {
+            fetchMenu();
+          }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        setWsConnected(false);
+        setTimeout(connectWs, 3000);
+      };
+    };
+
+    connectWs();
+    return () => {
+      if (ws) ws.close();
+    };
+  }, []);
 
   // PIN AUTH VERIFICATION
   const handlePinKeyPress = (digit: string) => {
@@ -190,7 +222,6 @@ export function App() {
       });
       const data = await res.json();
       if (data.success) {
-        playKdsChime();
         setLastOrderReceipt(data.order);
         setShowReceiptModal(true);
         setCart([]);
@@ -323,7 +354,9 @@ export function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className="badge-status badge-emerald">🟢 Server Connected</span>
+          <span className={`badge-status ${wsConnected ? 'badge-emerald' : 'badge-rose'}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Zap size={14} /> {wsConnected ? 'WebSocket Live' : 'WS Reconnecting'}
+          </span>
           <button onClick={() => setIsLocked(true)} style={{ background: 'rgba(244,63,94,0.15)', color: '#fb7185', border: '1px solid rgba(244,63,94,0.3)', padding: '8px 14px', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Lock size={16} /> Lock
           </button>
@@ -457,7 +490,7 @@ export function App() {
               <button onClick={playKdsChime} style={{ background: '#334155', border: 'none', color: '#fff', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Volume2 size={16} /> Test Chime
               </button>
-              <span className="badge-status badge-amber">🟢 Live KDS Stream</span>
+              <span className="badge-status badge-emerald">⚡ 0ms WebSocket Sync</span>
             </div>
           </div>
 

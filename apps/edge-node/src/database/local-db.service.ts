@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import initSqlJs, { Database } from 'sql.js';
 import { Order } from '@rcms/shared-types';
 
 export interface LocalMenuItem {
@@ -14,7 +15,9 @@ export interface LocalMenuItem {
 }
 
 export class LocalDatabaseService {
-  private dbPath = path.join(process.cwd(), 'data', 'outlet_edge.json');
+  private dbPath = path.join(process.cwd(), 'data', 'outlet_edge.sqlite');
+  private jsonFallbackPath = path.join(process.cwd(), 'data', 'outlet_edge.json');
+  private db: Database | null = null;
   private menuItems: LocalMenuItem[] = [];
   private orders: Order[] = [];
 
@@ -24,22 +27,103 @@ export class LocalDatabaseService {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    if (fs.existsSync(this.dbPath)) {
+    try {
+      const SQL = await initSqlJs();
+      if (fs.existsSync(this.dbPath)) {
+        const filebuffer = fs.readFileSync(this.dbPath);
+        this.db = new SQL.Database(filebuffer);
+        console.log(`[SQLite WAL DB] Opened persistent SQLite database at data/outlet_edge.sqlite`);
+      } else {
+        this.db = new SQL.Database();
+        console.log(`[SQLite WAL DB] Initialized new SQLite database instance.`);
+      }
+
+      this.createTables();
+      this.loadFromSQLite();
+    } catch (err) {
+      console.warn(`[SQLite DB Warn] Falling back to JSON storage mode:`, (err as Error).message);
+      this.loadFromJSONFallback();
+    }
+  }
+
+  private createTables(): void {
+    if (!this.db) return;
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS menu_items (
+        id TEXT PRIMARY KEY,
+        sku TEXT NOT NULL,
+        name TEXT NOT NULL,
+        cat TEXT NOT NULL,
+        station TEXT NOT NULL,
+        price REAL NOT NULL,
+        is_available INTEGER NOT NULL,
+        image TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        order_number TEXT NOT NULL,
+        table_id TEXT NOT NULL,
+        waiter_id TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        total_tax REAL NOT NULL,
+        grand_total REAL NOT NULL,
+        raw_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+  }
+
+  private loadFromSQLite(): void {
+    if (!this.db) return;
+
+    // LOAD MENU ITEMS
+    const menuResult = this.db.exec("SELECT * FROM menu_items");
+    if (menuResult.length > 0 && menuResult[0].values.length > 0) {
+      this.menuItems = menuResult[0].values.map((row: any[]) => ({
+        id: row[0] as string,
+        sku: row[1] as string,
+        name: row[2] as string,
+        cat: row[3] as string,
+        station: row[4] as string,
+        price: row[5] as number,
+        isAvailable: Boolean(row[6]),
+        image: (row[7] as string) || undefined,
+      }));
+    } else {
+      this.menuItems = this.getDefaultMenuItems();
+      this.seedSQLiteMenuItems();
+    }
+
+    // LOAD ORDERS
+    const orderResult = this.db.exec("SELECT raw_json FROM orders");
+    if (orderResult.length > 0 && orderResult[0].values.length > 0) {
+      this.orders = orderResult[0].values.map((row: any[]) => JSON.parse(row[0] as string));
+    }
+  }
+
+  private seedSQLiteMenuItems(): void {
+    if (!this.db) return;
+    const stmt = this.db.prepare("INSERT OR REPLACE INTO menu_items VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    for (const item of this.menuItems) {
+      stmt.run([item.id, item.sku, item.name, item.cat, item.station, item.price, item.isAvailable ? 1 : 0, item.image || null]);
+    }
+    stmt.free();
+    this.persistSQLite();
+  }
+
+  private loadFromJSONFallback(): void {
+    if (fs.existsSync(this.jsonFallbackPath)) {
       try {
-        const raw = fs.readFileSync(this.dbPath, 'utf8');
+        const raw = fs.readFileSync(this.jsonFallbackPath, 'utf8');
         const data = JSON.parse(raw);
         this.menuItems = data.menuItems || this.getDefaultMenuItems();
         this.orders = data.orders || [];
-        console.log(`[LocalDB] Loaded persistent database from disk (${this.menuItems.length} menu items, ${this.orders.length} orders).`);
-      } catch (err) {
-        console.warn(`[LocalDB] Could not parse disk DB, falling back to default seed data.`);
+      } catch (e) {
         this.menuItems = this.getDefaultMenuItems();
-        this.persist();
       }
     } else {
       this.menuItems = this.getDefaultMenuItems();
-      this.persist();
-      console.log(`[LocalDB] Initialized seed database with ${this.menuItems.length} menu items.`);
     }
   }
 
@@ -55,16 +139,14 @@ export class LocalDatabaseService {
     ];
   }
 
-  private persist(): void {
+  private persistSQLite(): void {
+    if (!this.db) return;
     try {
-      const data = {
-        menuItems: this.menuItems,
-        orders: this.orders,
-        updatedAt: new Date().toISOString()
-      };
-      fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2), 'utf8');
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
     } catch (err) {
-      console.error(`[LocalDB Error] Persistent write failed:`, (err as Error).message);
+      console.error(`[SQLite Write Error]:`, (err as Error).message);
     }
   }
 
@@ -87,7 +169,14 @@ export class LocalDatabaseService {
       isAvailable: true
     };
     this.menuItems.push(newItem);
-    this.persist();
+
+    if (this.db) {
+      this.db.run(
+        "INSERT OR REPLACE INTO menu_items VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [newItem.id, newItem.sku, newItem.name, newItem.cat, newItem.station, newItem.price, 1, null]
+      );
+      this.persistSQLite();
+    }
     return newItem;
   }
 
@@ -95,7 +184,10 @@ export class LocalDatabaseService {
     const initLen = this.menuItems.length;
     this.menuItems = this.menuItems.filter(m => m.id !== id);
     if (this.menuItems.length !== initLen) {
-      this.persist();
+      if (this.db) {
+        this.db.run("DELETE FROM menu_items WHERE id = ?", [id]);
+        this.persistSQLite();
+      }
       return true;
     }
     return false;
@@ -103,6 +195,22 @@ export class LocalDatabaseService {
 
   public async saveOrder(order: Order): Promise<void> {
     this.orders.push(order);
-    this.persist();
+    if (this.db) {
+      this.db.run(
+        "INSERT OR REPLACE INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+          order.id,
+          order.orderNumber,
+          order.tableId || 'Table 2',
+          order.waiterId || 'usr_waiter_01',
+          order.subtotal,
+          order.totalTax,
+          order.grandTotal,
+          JSON.stringify(order),
+          order.createdAt || new Date().toISOString()
+        ]
+      );
+      this.persistSQLite();
+    }
   }
 }
