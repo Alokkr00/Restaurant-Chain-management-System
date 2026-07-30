@@ -44,6 +44,16 @@ async function startServer() {
     const url = req.url || '';
 
     // ==========================================
+    // 🖼️ STATIC ASSET SERVING FOR DISH IMAGES
+    // ==========================================
+    if (url.startsWith('/pos/assets/images/')) {
+      const imageName = path.basename(url);
+      const imgPath = path.join(ROOT_DIR, 'apps/pos-waiter/assets/images', imageName);
+      serveStaticFile(res, imgPath, 'image/jpeg');
+      return;
+    }
+
+    // ==========================================
     // 🌐 FRONTEND STATIC ROUTING FOR POS WAITER
     // ==========================================
     if (url === '/' || url === '/pos' || url === '/pos/' || url === '/pos/index.html') {
@@ -107,7 +117,7 @@ async function startServer() {
 
       const metrics = {
         success: true,
-        totalSales: totalSales > 0 ? totalSales + 146500 : 146500, // Seed baseline + live orders
+        totalSales: totalSales > 0 ? totalSales + 146500 : 146500,
         totalOrders: totalOrders > 0 ? totalOrders + 240 : 240,
         avgFoodCostPct: 30.42,
         outlets: [

@@ -6,7 +6,8 @@
       "name": "Butter Chicken",
       "price": 350,
       "station": "GRILL",
-      "isActive": true
+      "isActive": true,
+      "image": "/pos/assets/images/butter_chicken.jpg"
     },
     {
       "id": "item_paneer_tikka",
@@ -14,7 +15,8 @@
       "name": "Paneer Tikka",
       "price": 280,
       "station": "GRILL",
-      "isActive": true
+      "isActive": true,
+      "image": "/pos/assets/images/paneer_tikka.jpg"
     },
     {
       "id": "item_dal_makhani",
@@ -22,7 +24,8 @@
       "name": "Dal Makhani",
       "price": 260,
       "station": "FRY",
-      "isActive": true
+      "isActive": true,
+      "image": "/pos/assets/images/dal_makhani.jpg"
     },
     {
       "id": "item_butter_naan",
@@ -54,7 +57,8 @@
       "price": 340,
       "station": "GRILL",
       "id": "item_1785406594354_9wvx",
-      "isActive": true
+      "isActive": true,
+      "image": "/pos/assets/images/chicken_biryani.jpg"
     }
   ],
   "orders": [

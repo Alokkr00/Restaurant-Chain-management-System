@@ -8,6 +8,7 @@ export interface MenuItemRecord {
   name: string;
   price: number;
   station: 'GRILL' | 'FRY' | 'COLD' | 'BAR';
+  image?: string;
   isActive: boolean;
 }
 
@@ -29,12 +30,13 @@ export class LocalDatabaseService {
   private dbPath = path.resolve(__dirname, '../../../../data/outlet_edge.json');
   private data: DBData = {
     menuItems: [
-      { id: 'item_butter_chicken', cat: 'cat_mains', name: 'Butter Chicken', price: 350, station: 'GRILL', isActive: true },
-      { id: 'item_paneer_tikka', cat: 'cat_starters', name: 'Paneer Tikka', price: 280, station: 'GRILL', isActive: true },
-      { id: 'item_dal_makhani', cat: 'cat_mains', name: 'Dal Makhani', price: 260, station: 'FRY', isActive: true },
+      { id: 'item_butter_chicken', cat: 'cat_mains', name: 'Butter Chicken', price: 350, station: 'GRILL', image: '/pos/assets/images/butter_chicken.jpg', isActive: true },
+      { id: 'item_paneer_tikka', cat: 'cat_starters', name: 'Paneer Tikka', price: 280, station: 'GRILL', image: '/pos/assets/images/paneer_tikka.jpg', isActive: true },
+      { id: 'item_dal_makhani', cat: 'cat_mains', name: 'Dal Makhani', price: 260, station: 'FRY', image: '/pos/assets/images/dal_makhani.jpg', isActive: true },
       { id: 'item_butter_naan', cat: 'cat_mains', name: 'Butter Naan', price: 60, station: 'GRILL', isActive: true },
       { id: 'item_masala_coke', cat: 'cat_beverages', name: 'Masala Coke', price: 90, station: 'BAR', isActive: true },
       { id: 'item_sweet_lassi', cat: 'cat_beverages', name: 'Sweet Lassi', price: 110, station: 'BAR', isActive: true },
+      { id: 'item_chicken_biryani', cat: 'cat_mains', name: 'Chicken Biryani', price: 340, station: 'GRILL', image: '/pos/assets/images/chicken_biryani.jpg', isActive: true },
     ],
     orders: [],
     syncQueue: [],
@@ -49,7 +51,17 @@ export class LocalDatabaseService {
     if (fs.existsSync(this.dbPath)) {
       try {
         const raw = fs.readFileSync(this.dbPath, 'utf8');
-        this.data = JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        // Ensure menu item images are populated
+        this.data = parsed;
+        let updated = false;
+        this.data.menuItems.forEach((i) => {
+          if (i.id === 'item_butter_chicken') { i.image = '/pos/assets/images/butter_chicken.jpg'; updated = true; }
+          if (i.id === 'item_paneer_tikka') { i.image = '/pos/assets/images/paneer_tikka.jpg'; updated = true; }
+          if (i.id === 'item_dal_makhani') { i.image = '/pos/assets/images/dal_makhani.jpg'; updated = true; }
+          if (i.name === 'Chicken Biryani') { i.image = '/pos/assets/images/chicken_biryani.jpg'; updated = true; }
+        });
+        if (updated) this.persist();
         console.log(`[LocalDB] Loaded persistent database from disk (${this.data.menuItems.length} menu items, ${this.data.orders.length} orders).`);
       } catch (err) {
         console.warn('[LocalDB] Disk database corrupt/empty. Initializing fresh schema.');
