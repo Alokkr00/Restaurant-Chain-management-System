@@ -17,7 +17,8 @@ import {
   Printer,
   Grid,
   Volume2,
-  Zap
+  Zap,
+  PackageCheck
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api/v1';
@@ -48,7 +49,8 @@ export function App() {
   const [kdsStation, setKdsStation] = useState('GRILL');
   const [kdsTickets, setKdsTickets] = useState<any[]>([]);
 
-  // HQ STATE
+  // HQ & INVENTORY STATE
+  const [inventoryList, setInventoryList] = useState<any[]>([]);
   const [hqMetrics, setHqMetrics] = useState<any>({
     totalSales: 146500,
     totalOrders: 240,
@@ -77,6 +79,7 @@ export function App() {
     fetchMenu();
     fetchKdsTickets();
     fetchHqMetrics();
+    fetchInventory();
   }, []);
 
   // WEBSOCKET REAL-TIME STREAMING CONNECTION
@@ -100,6 +103,7 @@ export function App() {
             playKdsChime();
             fetchKdsTickets();
             fetchHqMetrics();
+            fetchInventory();
           } else if (data.type === 'ITEM_BUMPED') {
             fetchKdsTickets();
           } else if (data.type === 'MENU_UPDATED') {
@@ -179,6 +183,14 @@ export function App() {
       const res = await fetch(`${API_BASE}/hq/metrics`);
       const data = await res.json();
       if (data.success) setHqMetrics(data);
+    } catch (e) {}
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/inventory`);
+      const data = await res.json();
+      if (data.success) setInventoryList(data.inventory);
     } catch (e) {}
   };
 
@@ -521,9 +533,9 @@ export function App() {
         </main>
       )}
 
-      {/* HQ TAB */}
+      {/* HQ & LIVE INVENTORY TAB */}
       {activeTab === 'hq' && (
-        <main style={{ flex: 1, padding: '0 16px 16px 16px' }}>
+        <main style={{ flex: 1, padding: '0 16px 16px 16px', overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             <div className="glass-card" style={{ padding: '24px' }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Chain Today's Sales</p>
@@ -538,6 +550,30 @@ export function App() {
             </div>
           </div>
 
+          {/* 🥩 LIVE INVENTORY STOCK & BOM DEPLETION GRID */}
+          <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <PackageCheck size={22} color="#38bdf8" /> Live Raw Ingredient Stock & BOM Depletion
+              </h3>
+              <span className="badge-status badge-emerald">SQLite WAL Database</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+              {inventoryList.map(inv => (
+                <div key={inv.code} style={{ background: 'rgba(15,23,42,0.6)', padding: '16px', borderRadius: '12px', border: inv.availableQty <= inv.reorderLevel ? '1px solid #f43f5e' : '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 700 }}>{inv.code}</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.1rem', margin: '4px 0' }}>{inv.name}</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: inv.availableQty <= inv.reorderLevel ? '#fb7185' : '#34d399' }}>
+                    {inv.availableQty} {inv.unit}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>Reorder Level: {inv.reorderLevel} {inv.unit}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MULTI-OUTLET COMPARISON */}
           <div className="glass-card" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 900, marginBottom: '16px' }}>📊 Multi-Outlet Live Performance Comparison</h3>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

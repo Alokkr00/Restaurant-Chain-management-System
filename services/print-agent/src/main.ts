@@ -1,4 +1,7 @@
 import * as net from 'net';
+import { ESCPOSBuilder, buildThermalReceiptBuffer } from './escpos-builder';
+
+export { ESCPOSBuilder, buildThermalReceiptBuffer };
 
 export interface ThermalPrintJob {
   jobId: string;
@@ -11,19 +14,19 @@ export interface ThermalPrintJob {
 export class ESCPOSPrintAgent {
   async sendPrintJob(job: ThermalPrintJob): Promise<boolean> {
     const port = job.targetPrinterPort || 9100;
-    console.log(`[PrintAgent] Dispatching ESC/POS print job ${job.jobId} to ${job.targetPrinterIp}:${port}`);
+    console.log(`[PrintAgent] Dispatching native ESC/POS binary print job ${job.jobId} (${job.rawEscPosBuffer.length} bytes) to ${job.targetPrinterIp}:${port}`);
 
     try {
       await this.writeToSocket(job.targetPrinterIp, port, job.rawEscPosBuffer);
-      console.log(`[PrintAgent] Print job ${job.jobId} completed successfully.`);
+      console.log(`[PrintAgent] Binary print job ${job.jobId} completed successfully on main printer.`);
       return true;
     } catch (err) {
       console.error(`[PrintAgent] Connection error on ${job.targetPrinterIp}:${port}: ${(err as Error).message}`);
       if (job.fallbackPrinterIp) {
-        console.log(`[PrintAgent] Attempting failover to backup printer ${job.fallbackPrinterIp}:${port}`);
+        console.log(`[PrintAgent] Attempting failover to backup thermal printer ${job.fallbackPrinterIp}:${port}`);
         try {
           await this.writeToSocket(job.fallbackPrinterIp, port, job.rawEscPosBuffer);
-          console.log(`[PrintAgent] Print job ${job.jobId} completed on backup printer.`);
+          console.log(`[PrintAgent] Binary print job ${job.jobId} completed on backup printer.`);
           return true;
         } catch (backupErr) {
           console.error(`[PrintAgent] Backup printer failover failed: ${(backupErr as Error).message}`);

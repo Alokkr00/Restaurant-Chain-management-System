@@ -6,6 +6,7 @@ import { calculateGST } from '@rcms/gst-engine';
 import { Order, OrderType, OrderStatus } from '@rcms/shared-types';
 import { LocalDatabaseService } from './database/local-db.service';
 import { InventoryService } from './modules/inventory/inventory.service';
+import { buildThermalReceiptBuffer } from '@rcms/print-agent';
 
 const dbService = new LocalDatabaseService();
 const inventoryService = new InventoryService();
@@ -132,6 +133,16 @@ async function startServer() {
     }
 
     // ==========================================
+    // 🥩 REST API: LIVE INVENTORY STOCK & BOM
+    // ==========================================
+    if (req.method === 'GET' && url === '/api/v1/inventory') {
+      const inventory = dbService.getInventory();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, inventory }));
+      return;
+    }
+
+    // ==========================================
     // 📡 REST API: MENU CRUD (GET, POST, DELETE)
     // ==========================================
     if (req.method === 'GET' && url === '/api/v1/menu') {
@@ -239,9 +250,22 @@ async function startServer() {
           await dbService.saveOrder(newOrder);
           liveOrders.push(newOrder);
 
+          // 🥩 LIVE STOCK DEDUCTION IN INVENTORY DB
           for (const item of newOrder.items) {
+            dbService.deductStockForOrder(item.menuItemId, item.quantity);
             inventoryService.processOrderStockDepletion(item.menuItemId, item.quantity);
           }
+
+          // 🖨️ NATIVE ESC/POS BINARY BUFFER GENERATION
+          const escposBuffer = buildThermalReceiptBuffer({
+            orderNumber: newOrder.orderNumber,
+            tableId: newOrder.tableId || 'Table 2',
+            waiterId: newOrder.waiterId || 'usr_waiter_01',
+            items: validatedItems,
+            subtotal: newOrder.subtotal,
+            totalTax: newOrder.totalTax,
+            grandTotal: newOrder.grandTotal
+          });
 
           const kdsTicket = {
             id: newOrder.id,
@@ -255,7 +279,7 @@ async function startServer() {
           // ⚡ BROADCAST WEBSOCKET INSTANT KOT TICKET
           broadcastWebSocketEvent('ORDER_PLACED', { order: newOrder, kdsTicket });
 
-          console.log(`[Edge Node HTTP & WSS] Order #${orderNum} created. Subtotal: ₹${serverSubtotal}, Tax: ₹${tax.totalTax}, Grand Total: ₹${serverGrandTotal}`);
+          console.log(`[Edge Node HTTP & WSS] Order #${orderNum} created. Subtotal: ₹${serverSubtotal}, Tax: ₹${tax.totalTax}, Grand Total: ₹${serverGrandTotal} (ESC/POS: ${escposBuffer.length} bytes)`);
 
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, order: newOrder }));

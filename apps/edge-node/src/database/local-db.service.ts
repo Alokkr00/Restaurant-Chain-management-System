@@ -14,12 +14,30 @@ export interface LocalMenuItem {
   image?: string;
 }
 
+export interface InventoryItem {
+  code: string;
+  name: string;
+  availableQty: number;
+  unit: string;
+  reorderLevel: number;
+}
+
+export interface OrderEventLog {
+  id: string;
+  orderId: string;
+  eventType: 'ORDER_PLACED' | 'ITEM_VOIDED' | 'PRICE_OVERRIDE' | 'TABLE_TRANSFERRED' | 'DISCOUNT_APPLIED';
+  staffId: string;
+  detailsJson: string;
+  createdAt: string;
+}
+
 export class LocalDatabaseService {
   private dbPath = path.join(process.cwd(), 'data', 'outlet_edge.sqlite');
   private jsonFallbackPath = path.join(process.cwd(), 'data', 'outlet_edge.json');
   private db: Database | null = null;
   private menuItems: LocalMenuItem[] = [];
   private orders: Order[] = [];
+  private inventory: InventoryItem[] = [];
 
   public async initialize(): Promise<void> {
     const dir = path.dirname(this.dbPath);
@@ -71,6 +89,23 @@ export class LocalDatabaseService {
         raw_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS inventory_stock (
+        code TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        available_qty REAL NOT NULL,
+        unit TEXT NOT NULL,
+        reorder_level REAL NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS order_events (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        staff_id TEXT NOT NULL,
+        details_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -95,6 +130,21 @@ export class LocalDatabaseService {
       this.seedSQLiteMenuItems();
     }
 
+    // LOAD INVENTORY
+    const invResult = this.db.exec("SELECT * FROM inventory_stock");
+    if (invResult.length > 0 && invResult[0].values.length > 0) {
+      this.inventory = invResult[0].values.map((row: any[]) => ({
+        code: row[0] as string,
+        name: row[1] as string,
+        availableQty: row[2] as number,
+        unit: row[3] as string,
+        reorderLevel: row[4] as number,
+      }));
+    } else {
+      this.inventory = this.getDefaultInventory();
+      this.seedSQLiteInventory();
+    }
+
     // LOAD ORDERS
     const orderResult = this.db.exec("SELECT raw_json FROM orders");
     if (orderResult.length > 0 && orderResult[0].values.length > 0) {
@@ -112,6 +162,16 @@ export class LocalDatabaseService {
     this.persistSQLite();
   }
 
+  private seedSQLiteInventory(): void {
+    if (!this.db) return;
+    const stmt = this.db.prepare("INSERT OR REPLACE INTO inventory_stock VALUES (?, ?, ?, ?, ?)");
+    for (const inv of this.inventory) {
+      stmt.run([inv.code, inv.name, inv.availableQty, inv.unit, inv.reorderLevel]);
+    }
+    stmt.free();
+    this.persistSQLite();
+  }
+
   private loadFromJSONFallback(): void {
     if (fs.existsSync(this.jsonFallbackPath)) {
       try {
@@ -119,11 +179,14 @@ export class LocalDatabaseService {
         const data = JSON.parse(raw);
         this.menuItems = data.menuItems || this.getDefaultMenuItems();
         this.orders = data.orders || [];
+        this.inventory = this.getDefaultInventory();
       } catch (e) {
         this.menuItems = this.getDefaultMenuItems();
+        this.inventory = this.getDefaultInventory();
       }
     } else {
       this.menuItems = this.getDefaultMenuItems();
+      this.inventory = this.getDefaultInventory();
     }
   }
 
@@ -136,6 +199,15 @@ export class LocalDatabaseService {
       { id: 'mi_butter_naan_05', sku: 'SKU-BN-05', name: 'Butter Naan', cat: 'cat_breads', station: 'GRILL', price: 60, isAvailable: true },
       { id: 'mi_masala_chai_06', sku: 'SKU-MC-06', name: 'Cutting Masala Chai', cat: 'cat_beverages', station: 'BAR', price: 40, isAvailable: true },
       { id: 'mi_gulab_jamun_07', sku: 'SKU-GJ-07', name: 'Gulab Jamun (2 pcs)', cat: 'cat_desserts', station: 'COLD', price: 120, isAvailable: true }
+    ];
+  }
+
+  private getDefaultInventory(): InventoryItem[] {
+    return [
+      { code: 'ING_CHICKEN_KG', name: 'Raw Chicken (Fresh)', availableQty: 45.5, unit: 'kg', reorderLevel: 10.0 },
+      { code: 'ING_PANEER_KG', name: 'Malai Paneer', availableQty: 18.0, unit: 'kg', reorderLevel: 5.0 },
+      { code: 'ING_BUTTER_KG', name: 'Amul Butter Packets', availableQty: 25.0, unit: 'kg', reorderLevel: 5.0 },
+      { code: 'ING_FLOUR_KG', name: 'Maida Wheat Flour', availableQty: 100.0, unit: 'kg', reorderLevel: 20.0 }
     ];
   }
 
@@ -156,6 +228,10 @@ export class LocalDatabaseService {
 
   public getOrders(): Order[] {
     return this.orders;
+  }
+
+  public getInventory(): InventoryItem[] {
+    return this.inventory;
   }
 
   public addMenuItem(item: { name: string; cat: string; price: number; station: string }): LocalMenuItem {
@@ -210,7 +286,49 @@ export class LocalDatabaseService {
           order.createdAt || new Date().toISOString()
         ]
       );
+      this.logAuditTrail(order.id, 'ORDER_PLACED', order.waiterId || 'usr_waiter_01', { grandTotal: order.grandTotal, itemsCount: order.items?.length });
       this.persistSQLite();
+    }
+  }
+
+  /**
+   * 🛡️ APPEND-ONLY AUDIT TRAIL LOGGING
+   */
+  public logAuditTrail(orderId: string, eventType: 'ORDER_PLACED' | 'ITEM_VOIDED' | 'PRICE_OVERRIDE' | 'TABLE_TRANSFERRED' | 'DISCOUNT_APPLIED', staffId: string, details: any): void {
+    if (!this.db) return;
+    const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const now = new Date().toISOString();
+    this.db.run(
+      "INSERT INTO order_events VALUES (?, ?, ?, ?, ?, ?)",
+      [eventId, orderId, eventType, staffId, JSON.stringify(details), now]
+    );
+  }
+
+  /**
+   * 🥩 ATOMIC RAW INGREDIENT DEDUCTION
+   */
+  public deductStockForOrder(itemId: string, quantity: number): void {
+    let ingCode = '';
+    let amountPerPortion = 0.25; // Default 250g per dish
+
+    if (itemId.includes('butter_chicken') || itemId.includes('chicken_biryani')) {
+      ingCode = 'ING_CHICKEN_KG';
+    } else if (itemId.includes('paneer_tikka')) {
+      ingCode = 'ING_PANEER_KG';
+    } else if (itemId.includes('naan')) {
+      ingCode = 'ING_FLOUR_KG';
+      amountPerPortion = 0.10; // 100g flour per naan
+    }
+
+    if (ingCode) {
+      const inv = this.inventory.find(i => i.code === ingCode);
+      if (inv) {
+        inv.availableQty = Math.max(0, Number((inv.availableQty - amountPerPortion * quantity).toFixed(3)));
+        if (this.db) {
+          this.db.run("UPDATE inventory_stock SET available_qty = ? WHERE code = ?", [inv.availableQty, ingCode]);
+          console.log(`[BOM Stock Depletion] Deducted ${(amountPerPortion * quantity).toFixed(3)}${inv.unit} of ${inv.name}. Remaining: ${inv.availableQty}${inv.unit}`);
+        }
+      }
     }
   }
 }
