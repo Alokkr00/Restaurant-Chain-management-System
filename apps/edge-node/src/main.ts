@@ -54,56 +54,22 @@ async function startServer() {
     }
 
     // ==========================================
-    // 🌐 FRONTEND STATIC ROUTING FOR POS WAITER
+    // ⚛️ REACT SPA BUNDLE SERVING
     // ==========================================
-    if (url === '/' || url === '/pos' || url === '/pos/' || url === '/pos/index.html') {
+    if (url === '/pos/bundle.js') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/dist/bundle.js'), 'application/javascript');
+      return;
+    }
+    if (url === '/pos/bundle.css') {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/dist/bundle.css'), 'text/css');
+      return;
+    }
+
+    // ==========================================
+    // 🌐 REACT SPA ROUTING FOR ALL FRONTS (/pos, /kds, /hq)
+    // ==========================================
+    if (url === '/' || url.startsWith('/pos') || url.startsWith('/kds') || url.startsWith('/hq')) {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/index.html'), 'text/html');
-      return;
-    }
-    if (url === '/pos/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/pos'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/styles.css'), 'text/css');
-      return;
-    }
-    if (url === '/pos/app.js' || (url === '/app.js' && req.headers.referer?.includes('/pos'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/app.js'), 'application/javascript');
-      return;
-    }
-
-    // ==========================================
-    // 🌐 FRONTEND STATIC ROUTING FOR KDS KITCHEN
-    // ==========================================
-    if (url === '/kds' || url === '/kds/' || url === '/kds/index.html') {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/index.html'), 'text/html');
-      return;
-    }
-    if (url === '/kds/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/kds'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/styles.css'), 'text/css');
-      return;
-    }
-    if (url === '/kds/app.js' || (url === '/app.js' && req.headers.referer?.includes('/kds'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/app.js'), 'application/javascript');
-      return;
-    }
-
-    // ==========================================
-    // 🌐 FRONTEND STATIC ROUTING FOR HQ PORTAL
-    // ==========================================
-    if (url === '/hq' || url === '/hq/' || url === '/hq/index.html') {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/index.html'), 'text/html');
-      return;
-    }
-    if (url === '/hq/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/hq'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
-      return;
-    }
-    if (url === '/hq/app.js' || (url === '/app.js' && req.headers.referer?.includes('/hq'))) {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/app.js'), 'application/javascript');
-      return;
-    }
-
-    // Fallback for root /styles.css
-    if (url === '/styles.css') {
-      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
       return;
     }
 
@@ -316,11 +282,11 @@ async function startServer() {
   const PORT = 3001;
   server.listen(PORT, () => {
     console.log(`\n====================================================`);
-    console.log(`🚀 RCMS FULL-STACK SYSTEM LIVE ON PORT ${PORT}`);
+    console.log(`🚀 RCMS ENTERPRISE REACT SUITE LIVE ON PORT ${PORT}`);
     console.log(`====================================================`);
-    console.log(`📱 POS Waiter PWA UI:       http://localhost:${PORT}/pos`);
-    console.log(`📺 Kitchen Display (KDS):   http://localhost:${PORT}/kds`);
-    console.log(`📊 Cloud HQ Dashboard:     http://localhost:${PORT}/hq`);
+    console.log(`📱 React POS Waiter PWA:    http://localhost:${PORT}/pos`);
+    console.log(`📺 React Kitchen Display:   http://localhost:${PORT}/kds`);
+    console.log(`📊 React HQ Dashboard:      http://localhost:${PORT}/hq`);
     console.log(`====================================================\n`);
   });
 }
