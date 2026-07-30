@@ -23,10 +23,28 @@ export interface InventoryItem {
   reorderLevel: number;
 }
 
+export interface StaffUser {
+  id: string;
+  pin: string; // 4-digit security PIN
+  name: string;
+  role: 'ROLE_WAITER' | 'ROLE_CHEF' | 'ROLE_MANAGER' | 'ROLE_HQ_ADMIN';
+}
+
+export interface SyncQueueEvent {
+  id: string;
+  outletId: string;
+  eventType: string;
+  payloadJson: string;
+  vectorClock: number;
+  syncedAt: string | null;
+  createdAt: string;
+}
+
 export class LocalDatabaseService {
   private dbPath = path.join(process.cwd(), 'data', 'outlet_edge.sqlite');
   private db: Database | null = null;
   private bomEngine = new BOMCalculationEngine();
+  private vectorClockSeq = 0;
 
   public async initialize(): Promise<void> {
     const dir = path.dirname(this.dbPath);
@@ -87,6 +105,13 @@ export class LocalDatabaseService {
         reorder_level REAL NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS staff_users (
+        id TEXT PRIMARY KEY,
+        pin TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS order_events (
         id TEXT PRIMARY KEY,
         order_id TEXT NOT NULL,
@@ -95,18 +120,36 @@ export class LocalDatabaseService {
         details_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
-    `);
 
-    // Ensure status column exists if opened old database
-    try {
-      this.db.run("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'PLACED'");
-    } catch (e) {
-      // Column already exists
-    }
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id TEXT PRIMARY KEY,
+        outlet_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        vector_clock INTEGER NOT NULL,
+        synced_at TEXT,
+        created_at TEXT NOT NULL
+      );
+    `);
   }
 
   private seedInitialDataIfEmpty(): void {
     if (!this.db) return;
+
+    // STAFF USERS SEED
+    const staffCheck = this.db.exec("SELECT COUNT(*) FROM staff_users");
+    if (staffCheck.length === 0 || staffCheck[0].values[0][0] === 0) {
+      const staff: StaffUser[] = [
+        { id: 'usr_waiter_01', pin: '1234', name: 'Rahul Sharma', role: 'ROLE_WAITER' },
+        { id: 'usr_chef_02', pin: '5678', name: 'Chef Vikram', role: 'ROLE_CHEF' },
+        { id: 'usr_mgr_03', pin: '9999', name: 'Manager Ananya', role: 'ROLE_MANAGER' },
+      ];
+      const stmt = this.db.prepare("INSERT INTO staff_users VALUES (?, ?, ?, ?)");
+      for (const s of staff) {
+        stmt.run([s.id, s.pin, s.name, s.role]);
+      }
+      stmt.free();
+    }
 
     // MENU ITEMS SEED
     const menuCheck = this.db.exec("SELECT COUNT(*) FROM menu_items");
@@ -160,6 +203,62 @@ export class LocalDatabaseService {
   }
 
   // ====================================================
+  // 🔐 SERVER-SIDE STAFF PIN AUTHENTICATION
+  // ====================================================
+  public authenticateStaffPin(pin: string): StaffUser | null {
+    if (!this.db) return null;
+    const res = this.db.exec(`SELECT id, pin, name, role FROM staff_users WHERE pin = '${pin}'`);
+    if (res.length === 0 || res[0].values.length === 0) return null;
+    const row = res[0].values[0];
+    return {
+      id: row[0] as string,
+      pin: row[1] as string,
+      name: row[2] as string,
+      role: row[3] as any,
+    };
+  }
+
+  // ====================================================
+  // 🔄 VECTOR-CLOCK OFFLINE SYNC QUEUE
+  // ====================================================
+  public pushSyncEvent(eventType: string, payload: any): void {
+    if (!this.db) return;
+    this.vectorClockSeq++;
+    const eventId = `sync_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const now = new Date().toISOString();
+
+    this.db.run(
+      "INSERT INTO sync_queue VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [eventId, 'outlet_flagship_01', eventType, JSON.stringify(payload), this.vectorClockSeq, null, now]
+    );
+    this.persistSQLite();
+  }
+
+  public getPendingSyncEvents(): SyncQueueEvent[] {
+    if (!this.db) return [];
+    const res = this.db.exec("SELECT * FROM sync_queue WHERE synced_at IS NULL ORDER BY vector_clock ASC");
+    if (res.length === 0 || res[0].values.length === 0) return [];
+    return res[0].values.map((row: any[]) => ({
+      id: row[0] as string,
+      outletId: row[1] as string,
+      eventType: row[2] as string,
+      payloadJson: row[3] as string,
+      vectorClock: row[4] as number,
+      syncedAt: (row[5] as string) || null,
+      createdAt: row[6] as string,
+    }));
+  }
+
+  public markEventsSynced(eventIds: string[]): void {
+    if (!this.db || eventIds.length === 0) return;
+    const now = new Date().toISOString();
+    for (const id of eventIds) {
+      this.db.run("UPDATE sync_queue SET synced_at = ? WHERE id = ?", [now, id]);
+    }
+    this.persistSQLite();
+  }
+
+  // ====================================================
   // 📡 PURE SQL MENU OPERATIONS
   // ====================================================
   public getMenuItems(): LocalMenuItem[] {
@@ -194,6 +293,7 @@ export class LocalDatabaseService {
         "INSERT OR REPLACE INTO menu_items VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [newItem.id, newItem.sku, newItem.name, newItem.cat, newItem.station, newItem.price, 1, null]
       );
+      this.pushSyncEvent('MENU_ITEM_ADDED', newItem);
       this.persistSQLite();
     }
     return newItem;
@@ -202,6 +302,7 @@ export class LocalDatabaseService {
   public removeMenuItem(id: string): boolean {
     if (!this.db) return false;
     this.db.run("DELETE FROM menu_items WHERE id = ?", [id]);
+    this.pushSyncEvent('MENU_ITEM_REMOVED', { id });
     this.persistSQLite();
     return true;
   }
@@ -228,6 +329,7 @@ export class LocalDatabaseService {
     );
 
     this.logAuditTrail(order.id, 'ORDER_PLACED', order.waiterId || 'usr_waiter_01', { grandTotal: order.grandTotal, itemsCount: order.items?.length });
+    this.pushSyncEvent('ORDER_PLACED', order);
     this.persistSQLite();
   }
 
@@ -273,6 +375,7 @@ export class LocalDatabaseService {
         if (allBumped) order.status = OrderStatus.COMPLETED;
 
         this.db.run("UPDATE orders SET status = ?, raw_json = ? WHERE id = ?", [order.status, JSON.stringify(order), order.id]);
+        this.pushSyncEvent('ITEM_BUMPED', { orderId: order.id, itemId, kdsStatus: item.kdsStatus, orderStatus: order.status });
         this.persistSQLite();
         bumped = true;
         break;

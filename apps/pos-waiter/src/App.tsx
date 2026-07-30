@@ -18,7 +18,8 @@ import {
   Grid,
   Volume2,
   Zap,
-  PackageCheck
+  PackageCheck,
+  RefreshCw
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:3001/api/v1';
@@ -32,6 +33,7 @@ export function App() {
   const [isLocked, setIsLocked] = useState(true);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>({ name: 'Rahul Sharma', role: 'ROLE_WAITER' });
 
   // POS STATE
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -49,12 +51,13 @@ export function App() {
   const [kdsStation, setKdsStation] = useState('GRILL');
   const [kdsTickets, setKdsTickets] = useState<any[]>([]);
 
-  // HQ & INVENTORY STATE
+  // HQ, INVENTORY & SYNC QUEUE STATE
   const [inventoryList, setInventoryList] = useState<any[]>([]);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [hqMetrics, setHqMetrics] = useState<any>({
-    totalSales: 146500,
-    totalOrders: 240,
-    avgFoodCostPct: 30.42,
+    totalSales: 0,
+    totalOrders: 0,
+    avgFoodCostPct: 0,
     outlets: []
   });
 
@@ -80,6 +83,7 @@ export function App() {
     fetchKdsTickets();
     fetchHqMetrics();
     fetchInventory();
+    fetchSyncQueue();
   }, []);
 
   // WEBSOCKET REAL-TIME STREAMING CONNECTION
@@ -104,10 +108,13 @@ export function App() {
             fetchKdsTickets();
             fetchHqMetrics();
             fetchInventory();
+            fetchSyncQueue();
           } else if (data.type === 'ITEM_BUMPED') {
             fetchKdsTickets();
+            fetchSyncQueue();
           } else if (data.type === 'MENU_UPDATED') {
             fetchMenu();
+            fetchSyncQueue();
           }
         } catch (e) {}
       };
@@ -124,23 +131,35 @@ export function App() {
     };
   }, []);
 
-  // PIN AUTH VERIFICATION
-  const handlePinKeyPress = (digit: string) => {
+  // SERVER-SIDE PIN AUTH VERIFICATION
+  const handlePinKeyPress = async (digit: string) => {
     if (pinInput.length < 4) {
       const newPin = pinInput + digit;
       setPinInput(newPin);
 
       if (newPin.length === 4) {
-        if (newPin === '1234') {
-          setIsLocked(false);
-          setPinInput('');
-          setPinError(false);
-        } else {
-          setPinError(true);
-          setTimeout(() => {
+        try {
+          const res = await fetch(`${API_BASE}/auth/pin-login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: newPin })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setCurrentUser(data.user);
+            setIsLocked(false);
             setPinInput('');
             setPinError(false);
-          }, 600);
+          } else {
+            setPinError(true);
+            setTimeout(() => {
+              setPinInput('');
+              setPinError(false);
+            }, 600);
+          }
+        } catch (e) {
+          setPinError(true);
+          setTimeout(() => setPinInput(''), 600);
         }
       }
     }
@@ -194,6 +213,14 @@ export function App() {
     } catch (e) {}
   };
 
+  const fetchSyncQueue = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/sync/queue`);
+      const data = await res.json();
+      if (data.success) setPendingSyncCount(data.count);
+    } catch (e) {}
+  };
+
   // ADD TO CART
   const addToCart = (item: any) => {
     const existing = cart.find(c => c.id === item.id);
@@ -226,7 +253,7 @@ export function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableId: selectedTable,
-          waiterId: 'Rahul Sharma',
+          waiterId: currentUser.name,
           items: cart.map(i => ({ menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.price, station: i.station })),
           subtotal,
           grandTotal: subtotal * 1.05
@@ -305,8 +332,8 @@ export function App() {
             <div style={{ background: 'linear-gradient(135deg, #38bdf8, #6366f1)', width: '64px', height: '64px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
               <Lock size={32} color="#fff" />
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 900 }}>Staff PIN Authentication</h2>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '6px 0 20px 0' }}>Enter 4-Digit Security PIN (Default: 1234)</p>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900 }}>Server-Side Staff PIN Auth</h2>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '6px 0 20px 0' }}>Enter PIN: Waiter (1234), Chef (5678), Mgr (9999)</p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
               {[0, 1, 2, 3].map(idx => (
@@ -340,7 +367,7 @@ export function App() {
           </div>
           <div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 900, letterSpacing: '-0.5px' }}>RCMS ENTERPRISE SUITE</h1>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Rahul Sharma (Staff #104)</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{currentUser.name} ({currentUser.role})</p>
           </div>
         </div>
 
@@ -366,6 +393,9 @@ export function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className="badge-status badge-amber" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={14} /> Vector Queue: {pendingSyncCount} Pending
+          </span>
           <span className={`badge-status ${wsConnected ? 'badge-emerald' : 'badge-rose'}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Zap size={14} /> {wsConnected ? 'WebSocket Live' : 'WS Reconnecting'}
           </span>
@@ -538,7 +568,7 @@ export function App() {
         <main style={{ flex: 1, padding: '0 16px 16px 16px', overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             <div className="glass-card" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Chain Today's Sales</p>
+              <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Chain Today's Sales (Pure SQL)</p>
               <h2 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#34d399', margin: '8px 0' }}>₹{hqMetrics.totalSales?.toFixed(2)}</h2>
               <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{hqMetrics.totalOrders} Orders Processed</p>
             </div>
@@ -546,7 +576,7 @@ export function App() {
             <div className="glass-card" style={{ padding: '24px' }}>
               <p style={{ fontSize: '0.85rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Chain Avg Food Cost %</p>
               <h2 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#fbbf24', margin: '8px 0' }}>{hqMetrics.avgFoodCostPct}%</h2>
-              <p style={{ color: '#fb7185', fontWeight: 700, fontSize: '0.9rem' }}>⚠️ Target: 28.00% (+2.42% Leakage)</p>
+              <p style={{ color: '#38bdf8', fontWeight: 700, fontSize: '0.9rem' }}>Target: 29.85% (BOM Yield Enforced)</p>
             </div>
           </div>
 

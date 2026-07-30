@@ -81,6 +81,58 @@ async function startServer() {
     }
 
     // ==========================================
+    // 🔐 REST API: SERVER-SIDE STAFF PIN LOGIN
+    // ==========================================
+    if (req.method === 'POST' && url === '/api/v1/auth/pin-login') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { pin } = JSON.parse(body);
+          const user = dbService.authenticateStaffPin(pin);
+          if (user) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, user: { id: user.id, name: user.name, role: user.role } }));
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid Staff PIN' }));
+          }
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid Request' }));
+        }
+      });
+      return;
+    }
+
+    // ==========================================
+    // 🔄 REST API: VECTOR CLOCK SYNC QUEUE
+    // ==========================================
+    if (req.method === 'GET' && url === '/api/v1/sync/queue') {
+      const pendingEvents = dbService.getPendingSyncEvents();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, count: pendingEvents.length, events: pendingEvents }));
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/v1/sync/flush') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { eventIds } = JSON.parse(body);
+          dbService.markEventsSynced(eventIds || []);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, flushedCount: eventIds?.length || 0 }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: (e as Error).message }));
+        }
+      });
+      return;
+    }
+
+    // ==========================================
     // 📡 REST API: PURE SQL HQ METRICS (ZERO FAKE DATA)
     // ==========================================
     if (req.method === 'GET' && url === '/api/v1/hq/metrics') {
