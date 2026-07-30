@@ -12,7 +12,6 @@ const inventoryService = new InventoryService();
 let liveOrders: Order[] = [];
 let liveKdsTickets: any[] = [];
 
-// ROOT_DIR dynamically resolves to the workspace root (e:\Books)
 const ROOT_DIR = process.cwd();
 
 function serveStaticFile(res: http.ServerResponse, filePath: string, contentType: string) {
@@ -51,11 +50,11 @@ async function startServer() {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/index.html'), 'text/html');
       return;
     }
-    if (url === '/pos/styles.css') {
+    if (url === '/pos/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/pos'))) {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/styles.css'), 'text/css');
       return;
     }
-    if (url === '/pos/app.js') {
+    if (url === '/pos/app.js' || (url === '/app.js' && req.headers.referer?.includes('/pos'))) {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/pos-waiter/app.js'), 'application/javascript');
       return;
     }
@@ -67,11 +66,11 @@ async function startServer() {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/index.html'), 'text/html');
       return;
     }
-    if (url === '/kds/styles.css') {
+    if (url === '/kds/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/kds'))) {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/styles.css'), 'text/css');
       return;
     }
-    if (url === '/kds/app.js') {
+    if (url === '/kds/app.js' || (url === '/app.js' && req.headers.referer?.includes('/kds'))) {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/kds/app.js'), 'application/javascript');
       return;
     }
@@ -83,7 +82,13 @@ async function startServer() {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/index.html'), 'text/html');
       return;
     }
-    if (url === '/hq/styles.css') {
+    if (url === '/hq/styles.css' || (url === '/styles.css' && req.headers.referer?.includes('/hq'))) {
+      serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
+      return;
+    }
+
+    // Fallback for root /styles.css if referer is missing
+    if (url === '/styles.css') {
       serveStaticFile(res, path.join(ROOT_DIR, 'apps/hq-portal/styles.css'), 'text/css');
       return;
     }
