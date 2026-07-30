@@ -1,0 +1,19 @@
+{
+  "name": "@rcms/edge-node",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@rcms/shared-types": "workspace:*",
+    "@rcms/gst-engine": "workspace:*",
+    "@rcms/bom-engine": "workspace:*",
+    "@rcms/sync-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.0"
+  }
+}

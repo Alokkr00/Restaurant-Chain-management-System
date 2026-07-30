@@ -1,0 +1,18 @@
+{
+  "name": "@rcms/cloud-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@rcms/shared-types": "workspace:*",
+    "@rcms/sync-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.0"
+  }
+}

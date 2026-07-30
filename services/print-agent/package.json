@@ -1,0 +1,17 @@
+{
+  "name": "@rcms/print-agent",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@rcms/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.0"
+  }
+}
